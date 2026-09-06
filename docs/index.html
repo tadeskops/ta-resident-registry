@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8" />
+  <title>Resident Registry · The Address</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d9488" />
+  <meta name="description" content="Central resident record for The Address (Tower Apartments)." />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="./assets/css/theme.css?v=1" />
+</head>
+<body>
+  <div data-trr-header></div>
+
+  <main class="trr-main">
+    <h1 class="trr-page-title">Welcome to the Resident Registry</h1>
+    <p class="trr-page-sub">
+      The Management Committee is compiling an up-to-date register of every
+      household. Please take five minutes to add your details — it helps us
+      reach you quickly during emergencies, keep the visitor gate accurate,
+      and plan community services better.
+    </p>
+
+    <section class="trr-card" id="signedOutCard">
+      <h2 class="trr-card-h"><i class="fas fa-envelope-open-text"></i> Sign in with any email</h2>
+      <p class="trr-card-sub">
+        Gmail, Outlook, Yahoo, iCloud, work email — anything works. We send
+        you a 6-digit code by email, you paste it back, and you're in.
+        No password to remember.
+      </p>
+      <a class="trr-btn trr-btn-primary trr-btn-lg trr-btn-block" href="./signin.html">
+        Sign in to continue <i class="fas fa-arrow-right"></i>
+      </a>
+    </section>
+
+    <section class="trr-card trr-hidden" id="signedInCard">
+      <h2 class="trr-card-h"><i class="fas fa-user-check"></i> You're signed in</h2>
+      <p class="trr-card-sub" id="signedInWho">Loading…</p>
+      <div style="display:flex; gap:0.6rem; flex-wrap:wrap;">
+        <a class="trr-btn trr-btn-primary" href="./my-details.html">
+          <i class="fas fa-id-card"></i> My household details
+        </a>
+        <a class="trr-btn trr-btn-secondary trr-hidden" id="committeeLink" href="./committee.html">
+          <i class="fas fa-clipboard-list"></i> Committee dashboard
+        </a>
+      </div>
+    </section>
+
+    <section class="trr-card">
+      <h2 class="trr-card-h"><i class="fas fa-shield-alt"></i> What we collect &amp; why</h2>
+      <ul style="margin:0 0 0.25rem; padding-left:1.2rem; color:var(--trr-ink-2);">
+        <li>Flat identity, occupancy status, move-in date.</li>
+        <li>Primary resident: name, DOB, mobile, email.</li>
+        <li>Family members (name, relation, DOB, mobile).</li>
+        <li>Vehicles (type, registration, colour).</li>
+        <li>One emergency contact.</li>
+      </ul>
+      <p class="trr-card-sub" style="margin-top:0.75rem;">
+        Data stays on the committee's private repository, is never sold or
+        shared with third parties, and you can request deletion at any time.
+        Read the full <a href="./privacy.html">privacy notice</a>.
+      </p>
+    </section>
+  </main>
+
+  <div data-trr-footer></div>
+
+  <script src="./assets/js/api.js?v=1"></script>
+  <script src="./assets/js/ui.js?v=1"></script>
+  <script>
+    (async () => {
+      TRR.UI.renderHeader();
+      TRR.UI.renderFooter();
+      if (TRR.API.isSignedIn()) {
+        document.getElementById('signedOutCard').classList.add('trr-hidden');
+        const inCard = document.getElementById('signedInCard');
+        inCard.classList.remove('trr-hidden');
+        document.getElementById('signedInWho').textContent =
+          'Signed in as ' + TRR.API.currentEmail() + ' (' + TRR.API.currentRole() + ').';
+        if (['COMMITTEE', 'ADMIN'].includes(TRR.API.currentRole())) {
+          document.getElementById('committeeLink').classList.remove('trr-hidden');
+        }
+      }
+    })();
+  </script>
+</body>
+</html>

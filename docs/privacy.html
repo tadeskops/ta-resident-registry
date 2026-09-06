@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8" />
+  <title>Privacy notice · Resident Registry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d9488" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="./assets/css/theme.css?v=1" />
+</head>
+<body>
+  <div data-trr-header></div>
+
+  <main class="trr-main">
+    <h1 class="trr-page-title">Privacy notice</h1>
+    <p class="trr-page-sub">How we handle the details you enter into the Resident Registry.</p>
+
+    <section class="trr-card">
+      <h2 class="trr-card-h"><i class="fas fa-user-shield"></i> Data controller</h2>
+      <p>
+        <strong>The Address Management Committee</strong> is the data
+        controller for information you enter into this Registry. To
+        raise questions, request correction, or request deletion, write
+        to the committee at the email address published on the society
+        noticeboard.
+      </p>
+    </section>
+
+    <section class="trr-card">
+      <h2 class="trr-card-h"><i class="fas fa-database"></i> What we store</h2>
+      <ul>
+        <li>Flat identity (tower, flat number, occupancy, move-in date, prior address).</li>
+        <li>Primary resident (name, DOB, mobile, email).</li>
+        <li>Family members (name, relation, DOB, optional mobile).</li>
+        <li>Vehicles (type, registration, colour, parking slot).</li>
+        <li>Emergency contact.</li>
+      </ul>
+      <p class="trr-card-sub" style="margin-top:0.5rem;">
+        In v1 we do <strong>not</strong> collect photos, KYC documents
+        (Aadhaar / PAN / rental agreement), domestic-help details, or
+        pets. These may be added later after a separate committee
+        review and update to this notice.
+      </p>
+    </section>
+
+    <section class="trr-card">
+      <h2 class="trr-card-h"><i class="fas fa-lock"></i> Where it lives</h2>
+      <p>
+        Records are stored in a private GitHub repository
+        (<code>tadeskops/trr_record</code>) owned by the committee.
+        Only administrators and committee members with a signed-in
+        session can view records; residents can only see their own.
+      </p>
+      <p>
+        Access is protected by email one-time-codes. No password is
+        ever stored or transmitted.
+      </p>
+    </section>
+
+    <section class="trr-card">
+      <h2 class="trr-card-h"><i class="fas fa-user-slash"></i> Your rights</h2>
+      <p>
+        You may correct or delete your record at any time — write to the
+        Committee at the email address listed on the noticeboard, or click
+        <em>Delete my data</em> from your household page (coming soon).
+        Move-out flats are anonymised: identifying fields are cleared and only
+        the occupancy history remains.
+      </p>
+    </section>
+
+    <section class="trr-card">
+      <h2 class="trr-card-h"><i class="fas fa-handshake"></i> Who we do NOT share with</h2>
+      <p>
+        We do not sell, trade, or share resident data with vendors, marketing
+        partners, or third parties. Data may be used, in aggregate and
+        anonymised form, for community planning (e.g. "how many EVs are
+        registered").
+      </p>
+    </section>
+  </main>
+
+  <div data-trr-footer></div>
+
+  <script src="./assets/js/api.js?v=1"></script>
+  <script src="./assets/js/ui.js?v=1"></script>
+  <script>
+    TRR.UI.renderHeader();
+    TRR.UI.renderFooter();
+  </script>
+</body>
+</html>

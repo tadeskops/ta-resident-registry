@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8" />
+  <title>Committee dashboard · Resident Registry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d9488" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="./assets/css/theme.css?v=1" />
+</head>
+<body>
+  <div data-trr-header></div>
+
+  <main class="trr-main trr-main-wide">
+    <h1 class="trr-page-title">Committee dashboard</h1>
+    <p class="trr-page-sub">Directory + completion tracking across all towers.</p>
+
+    <div class="trr-kpi-grid">
+      <div class="trr-kpi"><p class="trr-kpi-label">Records</p><p class="trr-kpi-value" id="kpiTotal">0</p></div>
+      <div class="trr-kpi"><p class="trr-kpi-label">Drafts</p><p class="trr-kpi-value warn" id="kpiDraft">0</p></div>
+      <div class="trr-kpi"><p class="trr-kpi-label">Submitted</p><p class="trr-kpi-value" id="kpiSubmitted">0</p></div>
+      <div class="trr-kpi"><p class="trr-kpi-label">Verified</p><p class="trr-kpi-value ok" id="kpiVerified">0</p></div>
+      <div class="trr-kpi"><p class="trr-kpi-label">Sent back</p><p class="trr-kpi-value danger" id="kpiSentBack">0</p></div>
+    </div>
+
+    <section class="trr-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+        <h2 class="trr-card-h" style="margin:0;"><i class="fas fa-address-book"></i> Directory</h2>
+        <button type="button" class="trr-btn trr-btn-secondary" id="exportBtn">
+          <i class="fas fa-file-csv"></i> Export CSV
+        </button>
+      </div>
+      <div class="trr-table-wrap">
+        <table class="trr-table">
+          <thead>
+            <tr>
+              <th>Tower</th><th>Flat</th><th>Primary</th><th>Mobile</th>
+              <th>Family</th><th>Vehicles</th><th>Status</th><th>Updated</th>
+            </tr>
+          </thead>
+          <tbody id="rows">
+            <tr><td colspan="8" class="trr-empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <div data-trr-footer></div>
+
+  <script src="./assets/js/api.js?v=1"></script>
+  <script src="./assets/js/ui.js?v=1"></script>
+  <script>
+    (async () => {
+      TRR.UI.renderHeader();
+      TRR.UI.renderFooter();
+      if (!TRR.UI.requireAuth('COMMITTEE')) return;
+
+      const rowsEl = document.getElementById('rows');
+      const list = await TRR.API.listRecords();
+
+      const counts = { total: list.length, draft: 0, submitted: 0, verified: 0, 'sent-back': 0 };
+      list.forEach(r => { if (counts[r.status || 'draft'] !== undefined) counts[r.status || 'draft']++; });
+      document.getElementById('kpiTotal').textContent = counts.total;
+      document.getElementById('kpiDraft').textContent = counts.draft;
+      document.getElementById('kpiSubmitted').textContent = counts.submitted;
+      document.getElementById('kpiVerified').textContent = counts.verified;
+      document.getElementById('kpiSentBack').textContent = counts['sent-back'];
+
+      if (!list.length) {
+        rowsEl.innerHTML = '<tr><td colspan="8" class="trr-empty">No records yet. Ask residents to sign in and fill their details.</td></tr>';
+        return;
+      }
+
+      function chip(status) {
+        const s = status || 'draft';
+        const map = {
+          'draft': ['trr-chip', 'Draft'],
+          'submitted': ['trr-chip trr-chip-info', 'Submitted'],
+          'verified': ['trr-chip trr-chip-ok', 'Verified'],
+          'sent-back': ['trr-chip trr-chip-warn', 'Sent back'],
+        };
+        const [cls, label] = map[s] || ['trr-chip', s];
+        return `<span class="${cls}">${label}</span>`;
+      }
+      function esc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+      rowsEl.innerHTML = list.map(r => {
+        const f = r.flat || {}, p = r.primary || {};
+        const upd = r.updatedAt ? new Date(r.updatedAt).toLocaleDateString() : '—';
+        return `
+          <tr>
+            <td>${esc(f.tower)}</td>
+            <td>${esc(f.flatNo)}</td>
+            <td>${esc(p.name || '—')}<div style="color:var(--trr-muted); font-size:0.8rem;">${esc(p.email || '')}</div></td>
+            <td>${esc(p.mobile || '—')}</td>
+            <td>${(r.family || []).length}</td>
+            <td>${(r.vehicles || []).length}</td>
+            <td>${chip(r.status)}</td>
+            <td>${upd}</td>
+          </tr>`;
+      }).join('');
+
+      document.getElementById('exportBtn').addEventListener('click', () => {
+        const headers = ['tower','flatNo','occupancy','primaryName','primaryDob','primaryMobile','primaryEmail','familyCount','vehicleCount','emergencyName','emergencyMobile','status','updatedAt'];
+        const rows = list.map(r => {
+          const f = r.flat || {}, p = r.primary || {}, e = r.emergency || {};
+          return [f.tower, f.flatNo, f.occupancy, p.name, p.dob, p.mobile, p.email,
+                  (r.family||[]).length, (r.vehicles||[]).length,
+                  e.name, e.mobile, r.status, r.updatedAt]
+            .map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(',');
+        });
+        const csv = [headers.join(','), ...rows].join('\r\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `resident-registry-${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8" />
+  <title>Sign in · Resident Registry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d9488" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="./assets/css/theme.css?v=1" />
+</head>
+<body>
+  <div data-trr-header></div>
+
+  <main class="trr-auth-wrap">
+    <div class="trr-auth-card">
+      <div class="trr-auth-logo" aria-hidden="true"><i class="fas fa-envelope-open-text"></i></div>
+
+      <!-- Step 1: email -->
+      <div id="stepEmail">
+        <h1 class="trr-auth-h">Sign in to Resident Registry</h1>
+        <p class="trr-auth-sub">Use any email address — we'll send you a 6-digit code.</p>
+        <form id="emailForm" novalidate>
+          <div class="trr-field">
+            <label for="email">Email address <span class="trr-req">*</span></label>
+            <input type="email" id="email" name="email" class="trr-input" autocomplete="email"
+                   inputmode="email" required placeholder="you@example.com" />
+            <div class="trr-field-hint">
+              Works with Gmail, Outlook, Yahoo, iCloud, Zoho, or any work-domain email.
+            </div>
+          </div>
+          <button type="submit" class="trr-btn trr-btn-primary trr-btn-block trr-btn-lg" id="sendBtn">
+            <i class="fas fa-paper-plane"></i> Send code
+          </button>
+        </form>
+      </div>
+
+      <!-- Step 2: code -->
+      <div id="stepCode" class="trr-hidden">
+        <h1 class="trr-auth-h">Enter the code</h1>
+        <p class="trr-auth-sub">
+          Sent a 6-digit code to <strong id="sentToEmail">you</strong>.
+          Check spam if you don't see it in a minute.
+        </p>
+        <form id="codeForm" novalidate>
+          <div class="trr-otp-inputs" id="otpBoxes">
+            <input inputmode="numeric" maxlength="1" autocomplete="one-time-code" aria-label="digit 1" />
+            <input inputmode="numeric" maxlength="1" aria-label="digit 2" />
+            <input inputmode="numeric" maxlength="1" aria-label="digit 3" />
+            <input inputmode="numeric" maxlength="1" aria-label="digit 4" />
+            <input inputmode="numeric" maxlength="1" aria-label="digit 5" />
+            <input inputmode="numeric" maxlength="1" aria-label="digit 6" />
+          </div>
+          <button type="submit" class="trr-btn trr-btn-primary trr-btn-block trr-btn-lg" id="verifyBtn">
+            <i class="fas fa-check"></i> Verify &amp; continue
+          </button>
+        </form>
+        <div style="text-align:center; margin-top:0.75rem;">
+          <button type="button" class="trr-auth-back" id="backBtn">
+            <i class="fas fa-arrow-left"></i> Use a different email
+          </button>
+          <span style="color:var(--trr-muted);"> · </span>
+          <button type="button" class="trr-auth-back" id="resendBtn">Resend code</button>
+        </div>
+      </div>
+
+      <div id="mockHint" class="trr-field-hint trr-hidden"
+           style="margin-top:1rem; padding:0.6rem; background:var(--trr-warn-soft); color:#92400e; border-radius:6px; text-align:center;">
+        <i class="fas fa-flask"></i> Mock mode: the code is
+        <strong id="mockCode">—</strong>. In production, it will be emailed.
+      </div>
+    </div>
+  </main>
+
+  <div data-trr-footer></div>
+
+  <script src="./assets/js/api.js?v=1"></script>
+  <script src="./assets/js/ui.js?v=1"></script>
+  <script>
+    (async () => {
+      TRR.UI.renderHeader();
+      TRR.UI.renderFooter();
+
+      const stepEmail = document.getElementById('stepEmail');
+      const stepCode = document.getElementById('stepCode');
+      const emailForm = document.getElementById('emailForm');
+      const codeForm = document.getElementById('codeForm');
+      const emailInput = document.getElementById('email');
+      const sentToEmail = document.getElementById('sentToEmail');
+      const sendBtn = document.getElementById('sendBtn');
+      const verifyBtn = document.getElementById('verifyBtn');
+      const backBtn = document.getElementById('backBtn');
+      const resendBtn = document.getElementById('resendBtn');
+      const mockHint = document.getElementById('mockHint');
+      const mockCode = document.getElementById('mockCode');
+      const otpBoxes = Array.from(document.querySelectorAll('#otpBoxes input'));
+
+      // If already signed in, bounce to next page.
+      if (TRR.API.isSignedIn()) {
+        const params = new URLSearchParams(location.search);
+        window.location.replace(params.get('next') || './my-details.html');
+        return;
+      }
+
+      let currentEmail = '';
+
+      function showCodeStep(email, mockCodeVal) {
+        currentEmail = email;
+        sentToEmail.textContent = email;
+        stepEmail.classList.add('trr-hidden');
+        stepCode.classList.remove('trr-hidden');
+        otpBoxes[0].focus();
+        if (TRR.API.isMock && mockCodeVal) {
+          mockHint.classList.remove('trr-hidden');
+          mockCode.textContent = mockCodeVal;
+          // Pre-fill so previewers don't have to type
+          mockCodeVal.split('').forEach((ch, i) => { if (otpBoxes[i]) otpBoxes[i].value = ch; });
+        }
+      }
+
+      emailForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = emailInput.value.trim();
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          TRR.UI.toast('Enter a valid email address.', 'err');
+          return;
+        }
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending…';
+        try {
+          const result = await TRR.API.otpRequest(email);
+          TRR.UI.toast('Code sent. Check your inbox.', 'ok');
+          showCodeStep(email, result && result.mockCode);
+        } catch (err) {
+          TRR.UI.toast(err.message || 'Could not send code.', 'err');
+        } finally {
+          sendBtn.disabled = false;
+          sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Send code';
+        }
+      });
+
+      // OTP box navigation: auto-advance, backspace, paste
+      otpBoxes.forEach((box, i) => {
+        box.addEventListener('input', (e) => {
+          const v = e.target.value.replace(/\D/g, '');
+          e.target.value = v.slice(0, 1);
+          if (v && i < otpBoxes.length - 1) otpBoxes[i + 1].focus();
+        });
+        box.addEventListener('keydown', (e) => {
+          if (e.key === 'Backspace' && !box.value && i > 0) otpBoxes[i - 1].focus();
+        });
+        box.addEventListener('paste', (e) => {
+          const text = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+          if (!text) return;
+          e.preventDefault();
+          text.split('').forEach((ch, j) => { if (otpBoxes[j]) otpBoxes[j].value = ch; });
+          otpBoxes[Math.min(text.length, 5)].focus();
+        });
+      });
+
+      codeForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const code = otpBoxes.map(b => b.value).join('');
+        if (code.length !== 6) {
+          TRR.UI.toast('Enter all 6 digits.', 'err');
+          return;
+        }
+        verifyBtn.disabled = true;
+        verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying…';
+        try {
+          await TRR.API.otpVerify(currentEmail, code);
+          TRR.UI.toast('Signed in.', 'ok');
+          const params = new URLSearchParams(location.search);
+          setTimeout(() => { window.location.replace(params.get('next') || './my-details.html'); }, 400);
+        } catch (err) {
+          TRR.UI.toast(err.message || 'Verification failed.', 'err');
+          verifyBtn.disabled = false;
+          verifyBtn.innerHTML = '<i class="fas fa-check"></i> Verify &amp; continue';
+        }
+      });
+
+      backBtn.addEventListener('click', () => {
+        stepCode.classList.add('trr-hidden');
+        stepEmail.classList.remove('trr-hidden');
+        mockHint.classList.add('trr-hidden');
+        otpBoxes.forEach(b => b.value = '');
+        emailInput.focus();
+      });
+
+      resendBtn.addEventListener('click', async () => {
+        if (!currentEmail) return;
+        resendBtn.disabled = true;
+        try {
+          const result = await TRR.API.otpRequest(currentEmail);
+          TRR.UI.toast('New code sent.', 'ok');
+          if (TRR.API.isMock && result && result.mockCode) {
+            mockCode.textContent = result.mockCode;
+            result.mockCode.split('').forEach((ch, i) => { if (otpBoxes[i]) otpBoxes[i].value = ch; });
+          }
+        } catch (err) {
+          TRR.UI.toast(err.message || 'Could not resend.', 'err');
+        } finally {
+          resendBtn.disabled = false;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

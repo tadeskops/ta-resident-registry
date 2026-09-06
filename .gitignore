@@ -1,0 +1,18 @@
+# Never commit resident PII to the public code repo.
+config/residents/
+config/otp/
+config/audit.log
+photos/
+
+# Local secrets
+.dev.vars
+worker/.dev.vars
+worker/.wrangler/
+
+# Node
+node_modules/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+*.log

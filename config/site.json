@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "society": { "name": "The Address", "shortName": "TA" },
+  "towers": ["A", "B", "C", "D"],
+  "flatsPerFloor": { "A": 8, "B": 8, "C": 6, "D": 6 },
+  "floors": {
+    "A": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "B": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    "C": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    "D": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+  },
+  "occupancyOptions": [
+    { "value": "owner-occupied", "label": "Owner (living here)" },
+    { "value": "owner", "label": "Owner (not living here)" },
+    { "value": "tenant", "label": "Tenant" },
+    { "value": "vacant", "label": "Vacant" }
+  ],
+  "relationOptions": [
+    "Spouse", "Son", "Daughter", "Father", "Mother",
+    "Father-in-law", "Mother-in-law", "Brother", "Sister", "Other"
+  ],
+  "vehicleTypes": [
+    { "value": "2W", "label": "Two-wheeler" },
+    { "value": "4W", "label": "Four-wheeler" },
+    { "value": "EV-2W", "label": "Electric two-wheeler" },
+    { "value": "EV-4W", "label": "Electric four-wheeler" }
+  ],
+  "limits": {
+    "familyMembers": 12,
+    "vehicles": 6
+  },
+  "features": {
+    "FEATURE_TRR_PHOTOS": false,
+    "FEATURE_TRR_REMINDERS": true,
+    "FEATURE_TRR_CSV_EXPORT": true,
+    "FEATURE_TRR_OTP_LIVE": false
+  },
+  "reminders": {
+    "cadenceDays": 14,
+    "fromEmail": "committee@theaddress.example",
+    "subject": "Please complete your resident record"
+  }
+}

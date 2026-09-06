@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "note": "Administrators. Any email in this list resolves to role=ADMIN on sign-in. Keep this list short (2-3 people).",
+  "items": []
+}

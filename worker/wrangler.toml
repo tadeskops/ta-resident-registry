@@ -1,0 +1,20 @@
+name = "ta-resident-registry"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+# Secrets (set with `wrangler secret put <NAME>`):
+#   JWT_SECRET       — HS256 signing key
+#   GH_TOKEN         — fine-grained PAT, contents:rw on the private data repo
+#   RESEND_API_KEY   — only if MAIL_PROVIDER=resend
+#
+# Non-secret vars belong here:
+[vars]
+GH_OWNER = "tadeskops"
+GH_REPO = "trr_record"
+GH_BRANCH = "main"
+MAIL_PROVIDER = "resend"
+MAIL_FROM = "committee@theaddress.example"
+
+# [[kv_namespaces]]
+# binding = "OTP_KV"
+# id = "…"           # `wrangler kv:namespace create OTP_KV`

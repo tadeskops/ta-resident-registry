@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8" />
+  <title>My household details · Resident Registry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d9488" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="./assets/css/theme.css?v=1" />
+</head>
+<body>
+  <div data-trr-header></div>
+
+  <main class="trr-main">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap;">
+      <div>
+        <h1 class="trr-page-title">My household details</h1>
+        <p class="trr-page-sub">
+          Fill or update your record and click <strong>Save</strong>. When
+          everything is accurate, click <strong>Submit for review</strong> so
+          the committee can verify it.
+        </p>
+      </div>
+      <div id="statusBadge"></div>
+    </div>
+
+    <form id="householdForm" novalidate>
+      <!-- Flat identity -->
+      <section class="trr-card">
+        <h2 class="trr-card-h"><i class="fas fa-building"></i> Flat identity</h2>
+        <div class="trr-row-3">
+          <div class="trr-field">
+            <label for="tower">Tower <span class="trr-req">*</span></label>
+            <select id="tower" name="flat.tower" class="trr-select" required></select>
+          </div>
+          <div class="trr-field">
+            <label for="flatNo">Flat number <span class="trr-req">*</span></label>
+            <input id="flatNo" name="flat.flatNo" class="trr-input" required
+                   inputmode="numeric" placeholder="e.g. 1204" />
+          </div>
+          <div class="trr-field">
+            <label for="occupancy">Occupancy <span class="trr-req">*</span></label>
+            <select id="occupancy" name="flat.occupancy" class="trr-select" required></select>
+          </div>
+        </div>
+        <div class="trr-row">
+          <div class="trr-field">
+            <label for="moveInDate">Move-in date</label>
+            <input id="moveInDate" name="flat.moveInDate" class="trr-input" type="date" />
+            <div class="trr-field-hint">Required for tenants.</div>
+          </div>
+          <div class="trr-field">
+            <label for="priorAddress">Prior address (optional)</label>
+            <input id="priorAddress" name="flat.priorAddress" class="trr-input"
+                   placeholder="City &amp; area" />
+          </div>
+        </div>
+      </section>
+
+      <!-- Primary resident -->
+      <section class="trr-card">
+        <h2 class="trr-card-h"><i class="fas fa-user"></i> Primary resident</h2>
+        <div class="trr-field">
+          <label for="pName">Full name <span class="trr-req">*</span></label>
+          <input id="pName" name="primary.name" class="trr-input" required />
+        </div>
+        <div class="trr-row-3">
+          <div class="trr-field">
+            <label for="pDob">Date of birth <span class="trr-req">*</span></label>
+            <input id="pDob" name="primary.dob" class="trr-input" type="date" required />
+          </div>
+          <div class="trr-field">
+            <label for="pMobile">Mobile <span class="trr-req">*</span></label>
+            <input id="pMobile" name="primary.mobile" class="trr-input"
+                   inputmode="tel" pattern="[0-9+ ]{10,15}" required placeholder="10-digit" />
+          </div>
+          <div class="trr-field">
+            <label for="pEmail">Email (sign-in)</label>
+            <input id="pEmail" name="primary.email" class="trr-input" readonly />
+          </div>
+        </div>
+      </section>
+
+      <!-- Family members -->
+      <section class="trr-card">
+        <h2 class="trr-card-h"><i class="fas fa-users"></i> Family members</h2>
+        <p class="trr-card-sub">Everyone living in this flat with you.</p>
+        <div class="trr-subitem-list" id="familyList"></div>
+        <button type="button" class="trr-add" id="addFamily">
+          <i class="fas fa-plus"></i> Add family member
+        </button>
+      </section>
+
+      <!-- Vehicles -->
+      <section class="trr-card">
+        <h2 class="trr-card-h"><i class="fas fa-car"></i> Vehicles</h2>
+        <p class="trr-card-sub">Two- and four-wheelers registered to the flat.</p>
+        <div class="trr-subitem-list" id="vehicleList"></div>
+        <button type="button" class="trr-add" id="addVehicle">
+          <i class="fas fa-plus"></i> Add vehicle
+        </button>
+      </section>
+
+      <!-- Emergency contact -->
+      <section class="trr-card">
+        <h2 class="trr-card-h"><i class="fas fa-phone-volume"></i> Emergency contact</h2>
+        <p class="trr-card-sub">Someone the committee can call if we can't reach you.</p>
+        <div class="trr-row-3">
+          <div class="trr-field">
+            <label for="eName">Name <span class="trr-req">*</span></label>
+            <input id="eName" name="emergency.name" class="trr-input" required />
+          </div>
+          <div class="trr-field">
+            <label for="eRel">Relation <span class="trr-req">*</span></label>
+            <input id="eRel" name="emergency.relation" class="trr-input" required />
+          </div>
+          <div class="trr-field">
+            <label for="eMob">Mobile <span class="trr-req">*</span></label>
+            <input id="eMob" name="emergency.mobile" class="trr-input"
+                   inputmode="tel" required />
+          </div>
+        </div>
+        <div class="trr-field">
+          <label for="eMob2">Alternate mobile (optional)</label>
+          <input id="eMob2" name="emergency.altMobile" class="trr-input" inputmode="tel" />
+        </div>
+      </section>
+
+      <div class="trr-actions">
+        <button type="button" class="trr-btn trr-btn-secondary" id="saveBtn">
+          <i class="fas fa-save"></i> Save draft
+        </button>
+        <button type="submit" class="trr-btn trr-btn-primary" id="submitBtn">
+          <i class="fas fa-paper-plane"></i> Submit for review
+        </button>
+      </div>
+    </form>
+  </main>
+
+  <div data-trr-footer></div>
+
+  <script src="./assets/js/api.js?v=1"></script>
+  <script src="./assets/js/ui.js?v=1"></script>
+  <script>
+    (async () => {
+      TRR.UI.renderHeader();
+      TRR.UI.renderFooter();
+      if (!TRR.UI.requireAuth('RESIDENT')) return;
+
+      // Load config for towers / occupancy options.
+      const cfg = await fetch('../config/site.json').then(r => r.ok ? r.json() : null).catch(() => null)
+                || await fetch('./config/site.json').then(r => r.ok ? r.json() : null).catch(() => null)
+                || {
+                  towers: ['A', 'B', 'C', 'D'],
+                  occupancyOptions: [
+                    { value: 'owner-occupied', label: 'Owner (living here)' },
+                    { value: 'owner', label: 'Owner (not living here)' },
+                    { value: 'tenant', label: 'Tenant' },
+                    { value: 'vacant', label: 'Vacant' }
+                  ],
+                  relationOptions: ['Spouse','Son','Daughter','Father','Mother','Brother','Sister','Other'],
+                  vehicleTypes: [
+                    { value:'2W', label:'Two-wheeler'},
+                    { value:'4W', label:'Four-wheeler'},
+                    { value:'EV-2W', label:'Electric two-wheeler'},
+                    { value:'EV-4W', label:'Electric four-wheeler'},
+                  ],
+                  limits: { familyMembers: 12, vehicles: 6 }
+                };
+
+      // Populate selects
+      const towerSel = document.getElementById('tower');
+      towerSel.innerHTML = '<option value="">Select…</option>' +
+        (cfg.towers || []).map(t => `<option value="${t}">${t}</option>`).join('');
+      const occSel = document.getElementById('occupancy');
+      occSel.innerHTML = '<option value="">Select…</option>' +
+        (cfg.occupancyOptions || []).map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+
+      // Pre-fill email from session
+      document.getElementById('pEmail').value = TRR.API.currentEmail();
+
+      // ------- family / vehicle sub-item renderers ---------
+      const familyList = document.getElementById('familyList');
+      const vehicleList = document.getElementById('vehicleList');
+
+      function familyRow(data = {}) {
+        const row = document.createElement('div');
+        row.className = 'trr-subitem';
+        row.innerHTML = `
+          <div class="trr-subitem-h">
+            <span><i class="fas fa-user-friends"></i> Family member</span>
+            <button type="button" class="trr-subitem-remove" aria-label="Remove">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="trr-row">
+            <div class="trr-field">
+              <label>Name</label>
+              <input class="trr-input" data-k="name" value="${(data.name||'').replace(/"/g,'&quot;')}" />
+            </div>
+            <div class="trr-field">
+              <label>Relation</label>
+              <select class="trr-select" data-k="relation">
+                <option value="">Select…</option>
+                ${(cfg.relationOptions || []).map(r => `<option value="${r}" ${data.relation===r?'selected':''}>${r}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="trr-row">
+            <div class="trr-field">
+              <label>Date of birth</label>
+              <input class="trr-input" type="date" data-k="dob" value="${data.dob||''}" />
+            </div>
+            <div class="trr-field">
+              <label>Mobile (optional)</label>
+              <input class="trr-input" inputmode="tel" data-k="mobile" value="${(data.mobile||'').replace(/"/g,'&quot;')}" />
+            </div>
+          </div>
+        `;
+        row.querySelector('.trr-subitem-remove').addEventListener('click', () => row.remove());
+        familyList.appendChild(row);
+      }
+
+      function vehicleRow(data = {}) {
+        const row = document.createElement('div');
+        row.className = 'trr-subitem';
+        row.innerHTML = `
+          <div class="trr-subitem-h">
+            <span><i class="fas fa-car-side"></i> Vehicle</span>
+            <button type="button" class="trr-subitem-remove" aria-label="Remove">
+              <i class="fas fa-times"></i>
+            </button>
+          </div>
+          <div class="trr-row-3">
+            <div class="trr-field">
+              <label>Type</label>
+              <select class="trr-select" data-k="type">
+                <option value="">Select…</option>
+                ${(cfg.vehicleTypes || []).map(v => `<option value="${v.value}" ${data.type===v.value?'selected':''}>${v.label}</option>`).join('')}
+              </select>
+            </div>
+            <div class="trr-field">
+              <label>Registration no.</label>
+              <input class="trr-input" data-k="regNo" value="${(data.regNo||'').replace(/"/g,'&quot;')}" />
+            </div>
+            <div class="trr-field">
+              <label>Colour</label>
+              <input class="trr-input" data-k="colour" value="${(data.colour||'').replace(/"/g,'&quot;')}" />
+            </div>
+          </div>
+          <div class="trr-field">
+            <label>Parking slot (optional)</label>
+            <input class="trr-input" data-k="slot" value="${(data.slot||'').replace(/"/g,'&quot;')}" />
+          </div>
+        `;
+        row.querySelector('.trr-subitem-remove').addEventListener('click', () => row.remove());
+        vehicleList.appendChild(row);
+      }
+
+      document.getElementById('addFamily').addEventListener('click', () => {
+        const cap = (cfg.limits && cfg.limits.familyMembers) || 12;
+        if (familyList.children.length >= cap) {
+          TRR.UI.toast(`Up to ${cap} family members.`, 'warn');
+          return;
+        }
+        familyRow();
+      });
+      document.getElementById('addVehicle').addEventListener('click', () => {
+        const cap = (cfg.limits && cfg.limits.vehicles) || 6;
+        if (vehicleList.children.length >= cap) {
+          TRR.UI.toast(`Up to ${cap} vehicles.`, 'warn');
+          return;
+        }
+        vehicleRow();
+      });
+
+      function collectSubItems(list) {
+        return Array.from(list.children).map(row => {
+          const obj = {};
+          row.querySelectorAll('[data-k]').forEach(input => {
+            const v = input.value.trim();
+            if (v) obj[input.getAttribute('data-k')] = v;
+          });
+          return obj;
+        }).filter(o => Object.keys(o).length > 0);
+      }
+
+      function collect() {
+        return {
+          flat: {
+            tower: towerSel.value,
+            flatNo: document.getElementById('flatNo').value.trim(),
+            occupancy: occSel.value,
+            moveInDate: document.getElementById('moveInDate').value || null,
+            priorAddress: document.getElementById('priorAddress').value.trim() || null,
+          },
+          primary: {
+            name: document.getElementById('pName').value.trim(),
+            dob: document.getElementById('pDob').value,
+            mobile: document.getElementById('pMobile').value.trim(),
+            email: document.getElementById('pEmail').value.trim(),
+          },
+          family: collectSubItems(familyList),
+          vehicles: collectSubItems(vehicleList),
+          emergency: {
+            name: document.getElementById('eName').value.trim(),
+            relation: document.getElementById('eRel').value.trim(),
+            mobile: document.getElementById('eMob').value.trim(),
+            altMobile: document.getElementById('eMob2').value.trim() || null,
+          },
+        };
+      }
+
+      function paintStatus(status) {
+        const el = document.getElementById('statusBadge');
+        if (!status || status === 'draft') { el.innerHTML = '<span class="trr-chip">Draft</span>'; return; }
+        if (status === 'submitted') { el.innerHTML = '<span class="trr-chip trr-chip-info">Submitted — pending review</span>'; return; }
+        if (status === 'verified') { el.innerHTML = '<span class="trr-chip trr-chip-ok">Verified</span>'; return; }
+        if (status === 'sent-back') { el.innerHTML = '<span class="trr-chip trr-chip-warn">Needs corrections</span>'; return; }
+        el.innerHTML = `<span class="trr-chip">${status}</span>`;
+      }
+
+      // ------- prefill existing record ---------
+      try {
+        const rec = await TRR.API.getMyRecord();
+        if (rec) {
+          if (rec.flat) {
+            towerSel.value = rec.flat.tower || '';
+            document.getElementById('flatNo').value = rec.flat.flatNo || '';
+            occSel.value = rec.flat.occupancy || '';
+            document.getElementById('moveInDate').value = rec.flat.moveInDate || '';
+            document.getElementById('priorAddress').value = rec.flat.priorAddress || '';
+          }
+          if (rec.primary) {
+            document.getElementById('pName').value = rec.primary.name || '';
+            document.getElementById('pDob').value = rec.primary.dob || '';
+            document.getElementById('pMobile').value = rec.primary.mobile || '';
+          }
+          (rec.family || []).forEach(familyRow);
+          (rec.vehicles || []).forEach(vehicleRow);
+          if (rec.emergency) {
+            document.getElementById('eName').value = rec.emergency.name || '';
+            document.getElementById('eRel').value = rec.emergency.relation || '';
+            document.getElementById('eMob').value = rec.emergency.mobile || '';
+            document.getElementById('eMob2').value = rec.emergency.altMobile || '';
+          }
+          paintStatus(rec.status);
+        } else {
+          paintStatus('draft');
+        }
+      } catch (err) {
+        console.warn('load failed', err);
+        paintStatus('draft');
+      }
+
+      // ------- save + submit ---------
+      const saveBtn = document.getElementById('saveBtn');
+      const submitBtn = document.getElementById('submitBtn');
+
+      async function doSave() {
+        const data = collect();
+        if (!data.flat.tower || !data.flat.flatNo) {
+          TRR.UI.toast('Tower and flat number are required.', 'err');
+          return null;
+        }
+        saveBtn.disabled = submitBtn.disabled = true;
+        try {
+          const saved = await TRR.API.putMyRecord(data);
+          TRR.UI.toast('Draft saved.', 'ok');
+          paintStatus(saved.status);
+          return saved;
+        } catch (err) {
+          TRR.UI.toast(err.message || 'Save failed.', 'err');
+          return null;
+        } finally {
+          saveBtn.disabled = submitBtn.disabled = false;
+        }
+      }
+
+      saveBtn.addEventListener('click', doSave);
+
+      document.getElementById('householdForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        // Basic required-field check
+        const missing = ['pName','pDob','pMobile','eName','eRel','eMob']
+          .filter(id => !document.getElementById(id).value.trim());
+        if (missing.length) {
+          TRR.UI.toast('Fill required fields (marked *) before submitting.', 'err');
+          document.getElementById(missing[0]).focus();
+          return;
+        }
+        const saved = await doSave();
+        if (!saved) return;
+        try {
+          const submitted = await TRR.API.submitMyRecord();
+          paintStatus(submitted.status);
+          TRR.UI.toast('Submitted for committee review. Thank you!', 'ok');
+        } catch (err) {
+          TRR.UI.toast(err.message || 'Submit failed.', 'err');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
