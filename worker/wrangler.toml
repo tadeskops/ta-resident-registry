@@ -15,7 +15,7 @@ GH_BRANCH = "main"
 MAIL_PROVIDER = "noop"
 MAIL_FROM = "committee@theaddress.example"
 
-# Uncomment after `wrangler kv:namespace create OTP_KV`:
-# [[kv_namespaces]]
-# binding = "OTP_KV"
-# id = "..."
+# OTP_KV namespace for hashing/storing 6-digit sign-in codes with 10-min TTL.
+[[kv_namespaces]]
+binding = "OTP_KV"
+id = "f4b225307c7448d391c16f902440325b"
