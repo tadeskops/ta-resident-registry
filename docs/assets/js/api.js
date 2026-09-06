@@ -16,21 +16,48 @@
   const EMAIL_KEY = 'trr_email';
   const MOCK_OTP_KEY = 'trr_mock_otp';
   const MOCK_RECORDS_KEY = 'trr_mock_records';
-  const MOCK_ADMINS = new Set(['admin@example.com']);
-  const MOCK_MANAGERS = new Set(['manager@example.com', 'chair@example.com']);
+  const MOCK_ADMINS_KEY = 'trr_mock_admins';
+  const MOCK_MANAGERS_KEY = 'trr_mock_managers';
+  const MOCK_SITE_KEY = 'trr_mock_site';
 
-  function readRecords() {
-    try { return JSON.parse(localStorage.getItem(MOCK_RECORDS_KEY) || '{}'); }
-    catch (_e) { return {}; }
+  // Server-authoritative in worker/src/lib/roles.ts; mirrored here for mock parity.
+  const HARD_CODED_ADMINS = Object.freeze([
+    'samanasippa@gmail.com',
+    'ta.deskops@gmail.com',
+  ]);
+
+  const DEFAULT_CONTACT_EMAIL = 'theaddressaundh@gmail.com';
+
+  function readJsonKey(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; }
+    catch (_e) { return fallback; }
   }
-  function writeRecords(map) {
-    localStorage.setItem(MOCK_RECORDS_KEY, JSON.stringify(map));
+  function writeJsonKey(key, value) {
+    localStorage.setItem(key, JSON.stringify(value));
   }
+  function readRecords() { return readJsonKey(MOCK_RECORDS_KEY, {}); }
+  function writeRecords(map) { writeJsonKey(MOCK_RECORDS_KEY, map); }
+
+  function readDynamicAdmins() { return readJsonKey(MOCK_ADMINS_KEY, []); }
+  function writeDynamicAdmins(list) { writeJsonKey(MOCK_ADMINS_KEY, list); }
+  function readDynamicManagers() { return readJsonKey(MOCK_MANAGERS_KEY, []); }
+  function writeDynamicManagers(list) { writeJsonKey(MOCK_MANAGERS_KEY, list); }
+
+  function readSiteOverride() { return readJsonKey(MOCK_SITE_KEY, {}); }
+  function writeSiteOverride(patch) {
+    const cur = readSiteOverride();
+    writeJsonKey(MOCK_SITE_KEY, Object.assign({}, cur, patch));
+  }
+
+  function normEmail(e) { return String(e || '').trim().toLowerCase(); }
+  function isValidEmail(e) { return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(normEmail(e)); }
+
   function roleFor(email) {
-    const e = String(email || '').trim().toLowerCase();
+    const e = normEmail(email);
     if (!e) return 'UNKNOWN';
-    if (MOCK_ADMINS.has(e)) return 'ADMIN';
-    if (MOCK_MANAGERS.has(e)) return 'MANAGER';
+    if (HARD_CODED_ADMINS.includes(e)) return 'ADMIN';
+    if (readDynamicAdmins().some(a => normEmail(a.email) === e)) return 'ADMIN';
+    if (readDynamicManagers().some(m => normEmail(m.email) === e)) return 'MANAGER';
     return 'RESIDENT';
   }
 
@@ -126,6 +153,103 @@
     });
   }
 
+  function findKey(tower, flat) {
+    return `${String(tower || '')}-${String(flat || '')}`;
+  }
+  async function mockGetRecord(tower, flat) {
+    const all = readRecords();
+    return all[findKey(tower, flat)] || null;
+  }
+  async function mockVerifyRecord(tower, flat) {
+    const email = requireEmail();
+    const all = readRecords();
+    const key = findKey(tower, flat);
+    if (!all[key]) throw new Error('Record not found.');
+    all[key].status = 'verified';
+    all[key].verifiedAt = new Date().toISOString();
+    all[key].verifiedBy = email;
+    all[key].sendBackNote = null;
+    writeRecords(all);
+    return all[key];
+  }
+  async function mockSendBackRecord(tower, flat, note) {
+    const email = requireEmail();
+    const all = readRecords();
+    const key = findKey(tower, flat);
+    if (!all[key]) throw new Error('Record not found.');
+    if (!note || !String(note).trim()) throw new Error('Send-back note is required.');
+    all[key].status = 'sent-back';
+    all[key].sendBackNote = String(note).trim();
+    all[key].sendBackAt = new Date().toISOString();
+    all[key].sendBackBy = email;
+    writeRecords(all);
+    return all[key];
+  }
+
+  async function mockGetSite() {
+    const base = (typeof window !== 'undefined' && window.__TRR_SITE_BASE__) || {};
+    const override = readSiteOverride();
+    const merged = Object.assign({}, base, override);
+    merged.society = Object.assign({}, base.society || {}, override.society || {});
+    if (!merged.society.contactEmail) merged.society.contactEmail = DEFAULT_CONTACT_EMAIL;
+    return merged;
+  }
+  async function mockPutSitePatch(patch) {
+    if (!patch || typeof patch !== 'object') throw new Error('Invalid site patch.');
+    const cur = readSiteOverride();
+    const merged = Object.assign({}, cur, patch);
+    if (patch.society) merged.society = Object.assign({}, cur.society || {}, patch.society);
+    writeSiteOverride(merged);
+    return mockGetSite();
+  }
+
+  function buildAdminList() {
+    const floor = HARD_CODED_ADMINS.map(email => ({ email, name: '', system: true }));
+    const dynamic = readDynamicAdmins().map(a => ({ email: normEmail(a.email), name: a.name || '', system: false }));
+    const seen = new Set(floor.map(a => a.email));
+    const uniqueDynamic = dynamic.filter(a => !seen.has(a.email));
+    return floor.concat(uniqueDynamic);
+  }
+
+  async function mockListAdmins() { return buildAdminList(); }
+  async function mockAddAdmin(email, name) {
+    if (!isValidEmail(email)) throw new Error('Enter a valid email address.');
+    const e = normEmail(email);
+    if (HARD_CODED_ADMINS.includes(e)) throw new Error('This email is already a system admin.');
+    const list = readDynamicAdmins();
+    if (list.some(a => normEmail(a.email) === e)) throw new Error('This admin already exists.');
+    list.push({ email: e, name: name || '' });
+    writeDynamicAdmins(list);
+    return buildAdminList();
+  }
+  async function mockRemoveAdmin(email) {
+    const e = normEmail(email);
+    if (HARD_CODED_ADMINS.includes(e)) throw new Error('System admins cannot be removed.');
+    const list = readDynamicAdmins().filter(a => normEmail(a.email) !== e);
+    writeDynamicAdmins(list);
+    return buildAdminList();
+  }
+
+  async function mockListManagers() {
+    return readDynamicManagers().map(m => ({ email: normEmail(m.email), name: m.name || '' }));
+  }
+  async function mockAddManager(email, name) {
+    if (!isValidEmail(email)) throw new Error('Enter a valid email address.');
+    const e = normEmail(email);
+    if (HARD_CODED_ADMINS.includes(e)) throw new Error('This email is already a system admin.');
+    const list = readDynamicManagers();
+    if (list.some(m => normEmail(m.email) === e)) throw new Error('This Registry Manager already exists.');
+    list.push({ email: e, name: name || '' });
+    writeDynamicManagers(list);
+    return mockListManagers();
+  }
+  async function mockRemoveManager(email) {
+    const e = normEmail(email);
+    const list = readDynamicManagers().filter(m => normEmail(m.email) !== e);
+    writeDynamicManagers(list);
+    return mockListManagers();
+  }
+
   const API = {
     isMock: MOCK,
     isSignedIn: () => !!localStorage.getItem(TOKEN_KEY),
@@ -153,10 +277,22 @@
       }
       return liveFetch('/whoami');
     },
+    getSite: () => MOCK ? mockGetSite() : liveFetch('/config'),
+    putSitePatch: (patch) => MOCK ? mockPutSitePatch(patch) : liveFetch('/config/site', { method: 'PUT', body: patch }),
     getMyRecord: () => MOCK ? mockGetMyRecord() : liveFetch('/residents/me'),
     putMyRecord: (rec) => MOCK ? mockPutMyRecord(rec) : liveFetch('/residents/me', { method: 'PUT', body: rec }),
     submitMyRecord: () => MOCK ? mockSubmitMyRecord() : liveFetch('/residents/me/submit', { method: 'POST' }),
     listRecords: () => MOCK ? mockListRecords() : liveFetch('/residents'),
+    getRecord: (tower, flat) => MOCK ? mockGetRecord(tower, flat) : liveFetch(`/residents/${encodeURIComponent(tower)}/${encodeURIComponent(flat)}`),
+    verifyRecord: (tower, flat) => MOCK ? mockVerifyRecord(tower, flat) : liveFetch(`/residents/${encodeURIComponent(tower)}/${encodeURIComponent(flat)}/verify`, { method: 'POST' }),
+    sendBackRecord: (tower, flat, note) => MOCK ? mockSendBackRecord(tower, flat, note) : liveFetch(`/residents/${encodeURIComponent(tower)}/${encodeURIComponent(flat)}/send-back`, { method: 'POST', body: { note } }),
+    listAdmins: () => MOCK ? mockListAdmins() : liveFetch('/config/admins'),
+    addAdmin: (email, name) => MOCK ? mockAddAdmin(email, name) : liveFetch('/config/admins', { method: 'POST', body: { email, name } }),
+    removeAdmin: (email) => MOCK ? mockRemoveAdmin(email) : liveFetch('/config/admins/' + encodeURIComponent(email), { method: 'DELETE' }),
+    listManagers: () => MOCK ? mockListManagers() : liveFetch('/config/managers'),
+    addManager: (email, name) => MOCK ? mockAddManager(email, name) : liveFetch('/config/managers', { method: 'POST', body: { email, name } }),
+    removeManager: (email) => MOCK ? mockRemoveManager(email) : liveFetch('/config/managers/' + encodeURIComponent(email), { method: 'DELETE' }),
+    hardCodedAdmins: () => HARD_CODED_ADMINS.slice(),
   };
 
   window.TRR = window.TRR || {};

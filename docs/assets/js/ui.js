@@ -93,6 +93,26 @@
     return true;
   }
 
+  // Populates every <a|span data-trr-contact-email> with the site's contact
+  // address. Anchors become mailto: links.
+  async function wireContactEmail() {
+    const API = window.TRR && window.TRR.API;
+    if (!API) return;
+    let email = 'theaddressaundh@gmail.com';
+    try {
+      const site = await API.getSite();
+      if (site && site.society && site.society.contactEmail) {
+        email = site.society.contactEmail;
+      }
+    } catch (_e) { /* keep default */ }
+    document.querySelectorAll('[data-trr-contact-email]').forEach(el => {
+      el.textContent = email;
+      if (el.tagName === 'A') el.setAttribute('href', 'mailto:' + email);
+    });
+  }
+
+  function confirmDestructive(msg) { return window.confirm(msg); }
+
   window.TRR = window.TRR || {};
-  window.TRR.UI = { toast, renderHeader, renderFooter, requireAuth };
+  window.TRR.UI = { toast, renderHeader, renderFooter, requireAuth, wireContactEmail, confirmDestructive };
 })();

@@ -46,10 +46,27 @@
     </section>
   </main>
 
+  <!-- Flat-detail overlay (hidden until a row is clicked) -->
+  <div id="flatOverlay" class="trr-hidden" style="position:fixed; inset:0; z-index:100; background:rgba(15,23,42,0.45); padding:2rem 1rem; overflow-y:auto;">
+    <div class="trr-card" style="max-width:640px; margin:0 auto; box-shadow:var(--trr-shadow-lg);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:0.75rem;">
+        <div>
+          <h2 class="trr-card-h" style="margin:0;" id="flatTitle">Flat</h2>
+          <div id="flatStatus" style="margin-top:0.25rem;"></div>
+        </div>
+        <button type="button" class="trr-btn trr-btn-ghost" id="closeFlat" aria-label="Close">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <div id="flatBody"></div>
+      <div id="flatActions" class="trr-actions"></div>
+    </div>
+  </div>
+
   <div data-trr-footer></div>
 
-  <script src="./assets/js/api.js?v=1"></script>
-  <script src="./assets/js/ui.js?v=1"></script>
+  <script src="./assets/js/api.js?v=2"></script>
+  <script src="./assets/js/ui.js?v=2"></script>
   <script>
     (async () => {
       TRR.UI.renderHeader();
@@ -57,21 +74,15 @@
       if (!TRR.UI.requireAuth('MANAGER')) return;
 
       const rowsEl = document.getElementById('rows');
-      const list = await TRR.API.listRecords();
+      const overlay = document.getElementById('flatOverlay');
+      const flatTitle = document.getElementById('flatTitle');
+      const flatStatus = document.getElementById('flatStatus');
+      const flatBody = document.getElementById('flatBody');
+      const flatActions = document.getElementById('flatActions');
 
-      const counts = { total: list.length, draft: 0, submitted: 0, verified: 0, 'sent-back': 0 };
-      list.forEach(r => { if (counts[r.status || 'draft'] !== undefined) counts[r.status || 'draft']++; });
-      document.getElementById('kpiTotal').textContent = counts.total;
-      document.getElementById('kpiDraft').textContent = counts.draft;
-      document.getElementById('kpiSubmitted').textContent = counts.submitted;
-      document.getElementById('kpiVerified').textContent = counts.verified;
-      document.getElementById('kpiSentBack').textContent = counts['sent-back'];
-
-      if (!list.length) {
-        rowsEl.innerHTML = '<tr><td colspan="8" class="trr-empty">No records yet. Ask residents to sign in and fill their details.</td></tr>';
-        return;
-      }
-
+      function esc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+      function fmtDate(iso) { return iso ? new Date(iso).toLocaleDateString() : '—'; }
+      function fmtDateTime(iso) { return iso ? new Date(iso).toLocaleString() : '—'; }
       function chip(status) {
         const s = status || 'draft';
         const map = {
@@ -83,31 +94,182 @@
         const [cls, label] = map[s] || ['trr-chip', s];
         return `<span class="${cls}">${label}</span>`;
       }
-      function esc(s) { return String(s == null ? '' : s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
-      rowsEl.innerHTML = list.map(r => {
-        const f = r.flat || {}, p = r.primary || {};
-        const upd = r.updatedAt ? new Date(r.updatedAt).toLocaleDateString() : '—';
+      let list = [];
+      async function reload() {
+        list = await TRR.API.listRecords();
+        const counts = { total: list.length, draft: 0, submitted: 0, verified: 0, 'sent-back': 0 };
+        list.forEach(r => { if (counts[r.status || 'draft'] !== undefined) counts[r.status || 'draft']++; });
+        document.getElementById('kpiTotal').textContent = counts.total;
+        document.getElementById('kpiDraft').textContent = counts.draft;
+        document.getElementById('kpiSubmitted').textContent = counts.submitted;
+        document.getElementById('kpiVerified').textContent = counts.verified;
+        document.getElementById('kpiSentBack').textContent = counts['sent-back'];
+
+        if (!list.length) {
+          rowsEl.innerHTML = '<tr><td colspan="8" class="trr-empty">No records yet. Ask residents to sign in and fill their details.</td></tr>';
+          return;
+        }
+        rowsEl.innerHTML = list.map(r => {
+          const f = r.flat || {}, p = r.primary || {};
+          return `
+            <tr data-tower="${esc(f.tower)}" data-flat="${esc(f.flatNo)}" style="cursor:pointer;">
+              <td>${esc(f.tower)}</td>
+              <td>${esc(f.flatNo)}</td>
+              <td>${esc(p.name || '—')}<div style="color:var(--trr-muted); font-size:0.8rem;">${esc(p.email || '')}</div></td>
+              <td>${esc(p.mobile || '—')}</td>
+              <td>${(r.family || []).length}</td>
+              <td>${(r.vehicles || []).length}</td>
+              <td>${chip(r.status)}</td>
+              <td>${fmtDate(r.updatedAt)}</td>
+            </tr>`;
+        }).join('');
+        rowsEl.querySelectorAll('tr[data-tower]').forEach(tr => {
+          tr.addEventListener('click', () => openFlat(tr.dataset.tower, tr.dataset.flat));
+        });
+      }
+
+      function renderFlatBody(r) {
+        const f = r.flat || {}, p = r.primary || {}, e = r.emergency || {};
+        const fam = r.family || [];
+        const veh = r.vehicles || [];
+        const sendBackCard = r.status === 'sent-back' && r.sendBackNote
+          ? `<div class="trr-card" style="background:var(--trr-warn-soft); border-color:var(--trr-warn); padding:0.75rem 1rem; margin:0 0 1rem;">
+              <strong><i class="fas fa-triangle-exclamation"></i> Sent back:</strong> ${esc(r.sendBackNote)}
+              <div style="color:var(--trr-muted); font-size:0.8rem; margin-top:0.25rem;">by ${esc(r.sendBackBy || '')} on ${fmtDateTime(r.sendBackAt)}</div>
+            </div>`
+          : '';
+        const verifiedCard = r.status === 'verified'
+          ? `<div class="trr-field-hint" style="margin:0 0 1rem;"><i class="fas fa-circle-check" style="color:var(--trr-ok);"></i> Verified by ${esc(r.verifiedBy || '')} on ${fmtDateTime(r.verifiedAt)}</div>`
+          : '';
+        const famRows = fam.length
+          ? fam.map(m => `<tr><td>${esc(m.name || '')}</td><td>${esc(m.relation || '')}</td><td>${esc(m.dob || '')}</td><td>${esc(m.mobile || '')}</td></tr>`).join('')
+          : '<tr><td colspan="4" class="trr-empty" style="padding:0.6rem;">No family members recorded.</td></tr>';
+        const vehRows = veh.length
+          ? veh.map(v => `<tr><td>${esc(v.type || '')}</td><td>${esc(v.regNo || '')}</td><td>${esc(v.colour || '')}</td><td>${esc(v.slot || '')}</td></tr>`).join('')
+          : '<tr><td colspan="4" class="trr-empty" style="padding:0.6rem;">No vehicles recorded.</td></tr>';
         return `
-          <tr>
-            <td>${esc(f.tower)}</td>
-            <td>${esc(f.flatNo)}</td>
-            <td>${esc(p.name || '—')}<div style="color:var(--trr-muted); font-size:0.8rem;">${esc(p.email || '')}</div></td>
-            <td>${esc(p.mobile || '—')}</td>
-            <td>${(r.family || []).length}</td>
-            <td>${(r.vehicles || []).length}</td>
-            <td>${chip(r.status)}</td>
-            <td>${upd}</td>
-          </tr>`;
-      }).join('');
+          ${sendBackCard}
+          ${verifiedCard}
+          <h3 style="margin:0 0 0.4rem; font-size:0.95rem;">Flat identity</h3>
+          <p style="margin:0 0 1rem; color:var(--trr-ink-2);">
+            Tower <strong>${esc(f.tower)}</strong> · Flat <strong>${esc(f.flatNo)}</strong> · ${esc(f.occupancy || '—')}
+            ${f.moveInDate ? ' · Moved in ' + fmtDate(f.moveInDate) : ''}
+            ${f.priorAddress ? '<br><span style="color:var(--trr-muted); font-size:0.85rem;">Prior: ' + esc(f.priorAddress) + '</span>' : ''}
+          </p>
+          <h3 style="margin:0 0 0.4rem; font-size:0.95rem;">Primary resident</h3>
+          <p style="margin:0 0 1rem; color:var(--trr-ink-2);">
+            <strong>${esc(p.name || '—')}</strong><br>
+            ${esc(p.email || '—')} · ${esc(p.mobile || '—')} · DOB ${fmtDate(p.dob)}
+          </p>
+          <h3 style="margin:0 0 0.4rem; font-size:0.95rem;">Family members (${fam.length})</h3>
+          <div class="trr-table-wrap" style="margin:0 0 1rem;">
+            <table class="trr-table"><thead><tr><th>Name</th><th>Relation</th><th>DOB</th><th>Mobile</th></tr></thead>
+            <tbody>${famRows}</tbody></table>
+          </div>
+          <h3 style="margin:0 0 0.4rem; font-size:0.95rem;">Vehicles (${veh.length})</h3>
+          <div class="trr-table-wrap" style="margin:0 0 1rem;">
+            <table class="trr-table"><thead><tr><th>Type</th><th>Registration</th><th>Colour</th><th>Slot</th></tr></thead>
+            <tbody>${vehRows}</tbody></table>
+          </div>
+          <h3 style="margin:0 0 0.4rem; font-size:0.95rem;">Emergency contact</h3>
+          <p style="margin:0; color:var(--trr-ink-2);">
+            <strong>${esc(e.name || '—')}</strong> (${esc(e.relation || '—')})<br>
+            ${esc(e.mobile || '—')}${e.altMobile ? ' · alt ' + esc(e.altMobile) : ''}
+          </p>`;
+      }
+
+      function renderFlatActions(r) {
+        const tower = (r.flat || {}).tower;
+        const flat = (r.flat || {}).flatNo;
+        const canAct = r.status === 'submitted' || r.status === 'sent-back';
+        if (!canAct) {
+          flatActions.innerHTML = `<button type="button" class="trr-btn trr-btn-secondary" data-close>Close</button>`;
+        } else {
+          flatActions.innerHTML = `
+            <button type="button" class="trr-btn trr-btn-secondary" data-close>Close</button>
+            <button type="button" class="trr-btn trr-btn-danger" data-sendback-toggle>
+              <i class="fas fa-arrow-rotate-left"></i> Send back
+            </button>
+            <button type="button" class="trr-btn trr-btn-primary" data-verify>
+              <i class="fas fa-circle-check"></i> Verify
+            </button>`;
+        }
+        flatActions.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeFlat));
+        const vBtn = flatActions.querySelector('[data-verify]');
+        if (vBtn) vBtn.addEventListener('click', async () => {
+          if (!confirm(`Verify record for Tower ${tower} Flat ${flat}?`)) return;
+          try {
+            await TRR.API.verifyRecord(tower, flat);
+            TRR.UI.toast('Record verified.', 'ok');
+            closeFlat();
+            reload();
+          } catch (err) { TRR.UI.toast(err.message || 'Verify failed.', 'err'); }
+        });
+        const sBtn = flatActions.querySelector('[data-sendback-toggle]');
+        if (sBtn) sBtn.addEventListener('click', () => showSendBackForm(tower, flat));
+      }
+
+      function showSendBackForm(tower, flat) {
+        flatActions.innerHTML = `
+          <div style="width:100%; text-align:left;">
+            <label for="sendBackNote" style="display:block; font-size:0.85rem; font-weight:600; margin-bottom:0.35rem;">
+              What needs correction? <span style="color:var(--trr-danger);">*</span>
+            </label>
+            <textarea id="sendBackNote" class="trr-textarea" rows="3" required
+              placeholder="e.g. Please add family members' mobile numbers and vehicle registration."></textarea>
+            <div style="display:flex; gap:0.5rem; justify-content:flex-end; margin-top:0.6rem; flex-wrap:wrap;">
+              <button type="button" class="trr-btn trr-btn-secondary" data-cancel-sendback>Cancel</button>
+              <button type="button" class="trr-btn trr-btn-danger" data-confirm-sendback>
+                <i class="fas fa-arrow-rotate-left"></i> Send back to resident
+              </button>
+            </div>
+          </div>`;
+        const ta = flatActions.querySelector('#sendBackNote');
+        ta.focus();
+        flatActions.querySelector('[data-cancel-sendback]').addEventListener('click', async () => {
+          // re-render normal actions by re-reading current record
+          const r = await TRR.API.getRecord(tower, flat);
+          renderFlatActions(r);
+        });
+        flatActions.querySelector('[data-confirm-sendback]').addEventListener('click', async () => {
+          const note = ta.value.trim();
+          if (!note) { TRR.UI.toast('Note is required.', 'err'); ta.focus(); return; }
+          try {
+            await TRR.API.sendBackRecord(tower, flat, note);
+            TRR.UI.toast('Sent back to resident.', 'ok');
+            closeFlat();
+            reload();
+          } catch (err) { TRR.UI.toast(err.message || 'Send-back failed.', 'err'); }
+        });
+      }
+
+      async function openFlat(tower, flat) {
+        const r = await TRR.API.getRecord(tower, flat);
+        if (!r) { TRR.UI.toast('Record not found.', 'err'); return; }
+        flatTitle.innerHTML = `<i class="fas fa-building"></i> Tower ${esc(tower)} · Flat ${esc(flat)}`;
+        flatStatus.innerHTML = chip(r.status);
+        flatBody.innerHTML = renderFlatBody(r);
+        renderFlatActions(r);
+        overlay.classList.remove('trr-hidden');
+        document.body.style.overflow = 'hidden';
+      }
+      function closeFlat() {
+        overlay.classList.add('trr-hidden');
+        document.body.style.overflow = '';
+      }
+      document.getElementById('closeFlat').addEventListener('click', closeFlat);
+      overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeFlat(); });
+      document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && !overlay.classList.contains('trr-hidden')) closeFlat(); });
 
       document.getElementById('exportBtn').addEventListener('click', () => {
-        const headers = ['tower','flatNo','occupancy','primaryName','primaryDob','primaryMobile','primaryEmail','familyCount','vehicleCount','emergencyName','emergencyMobile','status','updatedAt'];
+        const headers = ['tower','flatNo','occupancy','primaryName','primaryDob','primaryMobile','primaryEmail','familyCount','vehicleCount','emergencyName','emergencyMobile','status','updatedAt','verifiedAt','verifiedBy','sendBackAt','sendBackNote'];
         const rows = list.map(r => {
           const f = r.flat || {}, p = r.primary || {}, e = r.emergency || {};
           return [f.tower, f.flatNo, f.occupancy, p.name, p.dob, p.mobile, p.email,
                   (r.family||[]).length, (r.vehicles||[]).length,
-                  e.name, e.mobile, r.status, r.updatedAt]
+                  e.name, e.mobile, r.status, r.updatedAt,
+                  r.verifiedAt, r.verifiedBy, r.sendBackAt, r.sendBackNote]
             .map(v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`).join(',');
         });
         const csv = [headers.join(','), ...rows].join('\r\n');
@@ -121,6 +283,8 @@
         a.remove();
         URL.revokeObjectURL(url);
       });
+
+      await reload();
     })();
   </script>
 </body>

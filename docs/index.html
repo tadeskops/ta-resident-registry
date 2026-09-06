@@ -43,6 +43,9 @@
         <a class="trr-btn trr-btn-secondary trr-hidden" id="managersLink" href="./managers.html">
           <i class="fas fa-clipboard-list"></i> Registry Managers dashboard
         </a>
+        <a class="trr-btn trr-btn-secondary trr-hidden" id="settingsLink" href="./settings.html">
+          <i class="fas fa-cog"></i> Settings
+        </a>
       </div>
     </section>
 
@@ -60,25 +63,34 @@
         shared with third parties, and you can request deletion at any time.
         Read the full <a href="./privacy.html">privacy notice</a>.
       </p>
+      <p class="trr-card-sub" style="margin-top:0.25rem;">
+        <i class="fas fa-envelope"></i>
+        Questions? Write to <a data-trr-contact-email href="#">the Committee</a>.
+      </p>
     </section>
   </main>
 
   <div data-trr-footer></div>
 
-  <script src="./assets/js/api.js?v=1"></script>
-  <script src="./assets/js/ui.js?v=1"></script>
+  <script src="./assets/js/api.js?v=2"></script>
+  <script src="./assets/js/ui.js?v=2"></script>
   <script>
     (async () => {
       TRR.UI.renderHeader();
       TRR.UI.renderFooter();
+      TRR.UI.wireContactEmail();
       if (TRR.API.isSignedIn()) {
         document.getElementById('signedOutCard').classList.add('trr-hidden');
         const inCard = document.getElementById('signedInCard');
         inCard.classList.remove('trr-hidden');
         document.getElementById('signedInWho').textContent =
           'Signed in as ' + TRR.API.currentEmail() + ' (' + TRR.API.currentRole() + ').';
-        if (['MANAGER', 'ADMIN'].includes(TRR.API.currentRole())) {
+        const role = TRR.API.currentRole();
+        if (['MANAGER', 'ADMIN'].includes(role)) {
           document.getElementById('managersLink').classList.remove('trr-hidden');
+        }
+        if (role === 'ADMIN') {
+          document.getElementById('settingsLink').classList.remove('trr-hidden');
         }
       }
     })();

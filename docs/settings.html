@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en-IN">
+<head>
+  <meta charset="utf-8" />
+  <title>Settings · Resident Registry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d9488" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="./assets/css/theme.css?v=2" />
+</head>
+<body>
+  <div data-trr-header></div>
+
+  <main class="trr-main">
+    <h1 class="trr-page-title">Settings</h1>
+    <p class="trr-page-sub">Admin-only: public contact email, administrators, and Registry Managers.</p>
+
+    <section class="trr-card">
+      <h2 class="trr-card-h"><i class="fas fa-envelope"></i> Public contact email</h2>
+      <p class="trr-card-sub">Shown to residents in the privacy notice and on the landing page.</p>
+      <form id="contactForm" style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end;" novalidate>
+        <div class="trr-field" style="flex:1 1 260px; margin-bottom:0;">
+          <label for="contactInput">Email address</label>
+          <input type="email" id="contactInput" class="trr-input" required autocomplete="email" />
+        </div>
+        <button type="submit" class="trr-btn trr-btn-primary">
+          <i class="fas fa-save"></i> Save
+        </button>
+      </form>
+    </section>
+
+    <section class="trr-card">
+      <h2 class="trr-card-h"><i class="fas fa-user-shield"></i> Administrators</h2>
+      <p class="trr-card-sub">
+        The two system admins are baked into the code and cannot be removed here.
+        Other admins are stored in <code>admins.json</code>.
+      </p>
+      <ul id="adminList" class="trr-subitem-list" style="margin-bottom:0.75rem;"></ul>
+      <form id="addAdminForm" style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end;" novalidate>
+        <div class="trr-field" style="flex:1 1 220px; margin-bottom:0;">
+          <label for="addAdminEmail">Add administrator</label>
+          <input type="email" id="addAdminEmail" class="trr-input" placeholder="email@example.com" required />
+        </div>
+        <div class="trr-field" style="flex:1 1 180px; margin-bottom:0;">
+          <label for="addAdminName">Name (optional)</label>
+          <input id="addAdminName" class="trr-input" placeholder="e.g. Chair" />
+        </div>
+        <button type="submit" class="trr-btn trr-btn-primary">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </form>
+    </section>
+
+    <section class="trr-card">
+      <h2 class="trr-card-h"><i class="fas fa-clipboard-list"></i> Registry Managers</h2>
+      <p class="trr-card-sub">
+        Users listed here get the <code>MANAGER</code> role on next sign-in. They can view the directory and verify records.
+      </p>
+      <ul id="managerList" class="trr-subitem-list" style="margin-bottom:0.75rem;"></ul>
+      <form id="addManagerForm" style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end;" novalidate>
+        <div class="trr-field" style="flex:1 1 220px; margin-bottom:0;">
+          <label for="addManagerEmail">Add Registry Manager</label>
+          <input type="email" id="addManagerEmail" class="trr-input" placeholder="email@example.com" required />
+        </div>
+        <div class="trr-field" style="flex:1 1 180px; margin-bottom:0;">
+          <label for="addManagerName">Name (optional)</label>
+          <input id="addManagerName" class="trr-input" placeholder="e.g. Secretary" />
+        </div>
+        <button type="submit" class="trr-btn trr-btn-primary">
+          <i class="fas fa-plus"></i> Add
+        </button>
+      </form>
+    </section>
+  </main>
+
+  <div data-trr-footer></div>
+
+  <script src="./assets/js/api.js?v=2"></script>
+  <script src="./assets/js/ui.js?v=2"></script>
+  <script>
+    (async () => {
+      TRR.UI.renderHeader();
+      TRR.UI.renderFooter();
+      if (!TRR.UI.requireAuth('ADMIN')) return;
+
+      function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+      // ---------- contact email ----------
+      const contactInput = document.getElementById('contactInput');
+      const site = await TRR.API.getSite();
+      contactInput.value = (site.society && site.society.contactEmail) || '';
+      document.getElementById('contactForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = contactInput.value.trim();
+        if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+          TRR.UI.toast('Enter a valid email address.', 'err');
+          return;
+        }
+        try {
+          await TRR.API.putSitePatch({ society: { contactEmail: email } });
+          TRR.UI.toast('Contact email saved.', 'ok');
+        } catch (err) {
+          TRR.UI.toast(err.message || 'Save failed.', 'err');
+        }
+      });
+
+      // ---------- admin list ----------
+      const adminList = document.getElementById('adminList');
+      async function renderAdmins() {
+        const admins = await TRR.API.listAdmins();
+        adminList.innerHTML = admins.map(a => `
+          <li class="trr-subitem" data-email="${esc(a.email)}">
+            <div class="trr-subitem-h">
+              <span>
+                ${a.system ? '<i class="fas fa-lock" style="color:var(--trr-muted);" aria-hidden="true"></i>' : '<i class="fas fa-user-shield" style="color:var(--trr-accent);" aria-hidden="true"></i>'}
+                <strong>${esc(a.email)}</strong>${a.name ? ' · ' + esc(a.name) : ''}
+              </span>
+              ${a.system
+                ? '<span class="trr-chip">System &mdash; non-removable</span>'
+                : '<button type="button" class="trr-btn trr-btn-danger" data-remove-admin>Remove</button>'}
+            </div>
+          </li>
+        `).join('');
+        adminList.querySelectorAll('[data-remove-admin]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const li = btn.closest('[data-email]');
+            const email = li.getAttribute('data-email');
+            if (!TRR.UI.confirmDestructive('Remove admin ' + email + '?')) return;
+            try {
+              await TRR.API.removeAdmin(email);
+              TRR.UI.toast('Admin removed.', 'ok');
+              renderAdmins();
+            } catch (err) {
+              TRR.UI.toast(err.message || 'Remove failed.', 'err');
+            }
+          });
+        });
+      }
+      await renderAdmins();
+
+      document.getElementById('addAdminForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('addAdminEmail').value.trim();
+        const name = document.getElementById('addAdminName').value.trim();
+        try {
+          await TRR.API.addAdmin(email, name);
+          TRR.UI.toast('Admin added.', 'ok');
+          document.getElementById('addAdminEmail').value = '';
+          document.getElementById('addAdminName').value = '';
+          renderAdmins();
+        } catch (err) {
+          TRR.UI.toast(err.message || 'Add failed.', 'err');
+        }
+      });
+
+      // ---------- manager list ----------
+      const managerList = document.getElementById('managerList');
+      async function renderManagers() {
+        const managers = await TRR.API.listManagers();
+        if (!managers.length) {
+          managerList.innerHTML = '<li class="trr-empty">No Registry Managers yet. Add one below.</li>';
+          return;
+        }
+        managerList.innerHTML = managers.map(m => `
+          <li class="trr-subitem" data-email="${esc(m.email)}">
+            <div class="trr-subitem-h">
+              <span>
+                <i class="fas fa-user-tie" style="color:var(--trr-accent);" aria-hidden="true"></i>
+                <strong>${esc(m.email)}</strong>${m.name ? ' · ' + esc(m.name) : ''}
+              </span>
+              <button type="button" class="trr-btn trr-btn-danger" data-remove-manager>Remove</button>
+            </div>
+          </li>
+        `).join('');
+        managerList.querySelectorAll('[data-remove-manager]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const li = btn.closest('[data-email]');
+            const email = li.getAttribute('data-email');
+            if (!TRR.UI.confirmDestructive('Remove Registry Manager ' + email + '?')) return;
+            try {
+              await TRR.API.removeManager(email);
+              TRR.UI.toast('Registry Manager removed.', 'ok');
+              renderManagers();
+            } catch (err) {
+              TRR.UI.toast(err.message || 'Remove failed.', 'err');
+            }
+          });
+        });
+      }
+      await renderManagers();
+
+      document.getElementById('addManagerForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('addManagerEmail').value.trim();
+        const name = document.getElementById('addManagerName').value.trim();
+        try {
+          await TRR.API.addManager(email, name);
+          TRR.UI.toast('Registry Manager added.', 'ok');
+          document.getElementById('addManagerEmail').value = '';
+          document.getElementById('addManagerName').value = '';
+          renderManagers();
+        } catch (err) {
+          TRR.UI.toast(err.message || 'Add failed.', 'err');
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

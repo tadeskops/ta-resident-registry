@@ -24,6 +24,8 @@
       <div id="statusBadge"></div>
     </div>
 
+    <div id="sendBackBanner" class="trr-hidden"></div>
+
     <form id="householdForm" novalidate>
       <!-- Flat identity -->
       <section class="trr-card">
@@ -139,8 +141,8 @@
 
   <div data-trr-footer></div>
 
-  <script src="./assets/js/api.js?v=1"></script>
-  <script src="./assets/js/ui.js?v=1"></script>
+  <script src="./assets/js/api.js?v=2"></script>
+  <script src="./assets/js/ui.js?v=2"></script>
   <script>
     (async () => {
       TRR.UI.renderHeader();
@@ -320,6 +322,25 @@
         el.innerHTML = `<span class="trr-chip">${status}</span>`;
       }
 
+      function paintSendBackBanner(rec) {
+        const wrap = document.getElementById('sendBackBanner');
+        if (!wrap) return;
+        if (rec && rec.status === 'sent-back' && rec.sendBackNote) {
+          const when = rec.sendBackAt ? new Date(rec.sendBackAt).toLocaleString() : '';
+          wrap.innerHTML = `
+            <div class="trr-card" style="background:var(--trr-warn-soft); border-color:var(--trr-warn);">
+              <h2 class="trr-card-h"><i class="fas fa-triangle-exclamation" style="color:var(--trr-warn);"></i> Your record needs corrections</h2>
+              <p style="margin:0.25rem 0 0.5rem;"><strong>Note from ${(rec.sendBackBy || 'the Registry Manager')}:</strong></p>
+              <p style="margin:0; padding:0.6rem 0.75rem; background:#fff; border-radius:6px;">${String(rec.sendBackNote).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</p>
+              <p style="margin:0.6rem 0 0; color:var(--trr-muted); font-size:0.85rem;">Sent back ${when}. Update the fields below and click <strong>Submit for review</strong> again.</p>
+            </div>`;
+          wrap.classList.remove('trr-hidden');
+        } else {
+          wrap.classList.add('trr-hidden');
+          wrap.innerHTML = '';
+        }
+      }
+
       // ------- prefill existing record ---------
       try {
         const rec = await TRR.API.getMyRecord();
@@ -345,6 +366,7 @@
             document.getElementById('eMob2').value = rec.emergency.altMobile || '';
           }
           paintStatus(rec.status);
+          paintSendBackBanner(rec);
         } else {
           paintStatus('draft');
         }
@@ -394,6 +416,7 @@
         try {
           const submitted = await TRR.API.submitMyRecord();
           paintStatus(submitted.status);
+          paintSendBackBanner(submitted);
           TRR.UI.toast('Submitted for review. Thank you!', 'ok');
         } catch (err) {
           TRR.UI.toast(err.message || 'Submit failed.', 'err');
