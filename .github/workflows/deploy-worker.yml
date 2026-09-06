@@ -34,6 +34,21 @@ jobs:
       - name: Install
         run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 
+      - name: Verify required secrets are set
+        env:
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GH_TOKEN: ${{ secrets.TRR_GH_TOKEN }}
+        run: |
+          missing=""
+          [ -z "$JWT_SECRET" ] && missing="$missing JWT_SECRET"
+          [ -z "$GH_TOKEN" ]   && missing="$missing TRR_GH_TOKEN"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing required GitHub secret(s):$missing"
+            echo "Set them at: Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+          echo "OK — all required secrets present."
+
       - name: Typecheck
         run: npx tsc --noEmit
 
@@ -41,12 +56,12 @@ jobs:
         run: npx vitest run --reporter=default
 
       - name: Sync JWT_SECRET
-        run: echo "$JWT_SECRET" | npx wrangler secret put JWT_SECRET
+        run: printf '%s' "$JWT_SECRET" | npx wrangler secret put JWT_SECRET
         env:
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
 
       - name: Sync GH_TOKEN
-        run: echo "$GH_TOKEN" | npx wrangler secret put GH_TOKEN
+        run: printf '%s' "$GH_TOKEN" | npx wrangler secret put GH_TOKEN
         env:
           GH_TOKEN: ${{ secrets.TRR_GH_TOKEN }}
 
@@ -55,7 +70,7 @@ jobs:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: |
           if [ -n "$RESEND_API_KEY" ]; then
-            echo "$RESEND_API_KEY" | npx wrangler secret put RESEND_API_KEY
+            printf '%s' "$RESEND_API_KEY" | npx wrangler secret put RESEND_API_KEY
           else
             echo "RESEND_API_KEY secret not set — leaving existing CF secret in place."
           fi
