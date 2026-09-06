@@ -11,14 +11,20 @@ function b64urlEncode(bytes: Uint8Array | ArrayBuffer): string {
   for (let i = 0; i < arr.length; i++) s += String.fromCharCode(arr[i]);
   return btoa(s).replace(/=+$/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 }
-function b64urlDecode(s: string): Uint8Array {
+function b64urlDecode(s: string): ArrayBuffer {
   const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4));
   const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + pad);
-  const out = new Uint8Array(b.length);
+  const buf = new ArrayBuffer(b.length);
+  const out = new Uint8Array(buf);
   for (let i = 0; i < b.length; i++) out[i] = b.charCodeAt(i);
-  return out;
+  return buf;
 }
-function utf8(s: string): Uint8Array { return new TextEncoder().encode(s); }
+function utf8(s: string): ArrayBuffer {
+  const arr = new TextEncoder().encode(s);
+  const buf = new ArrayBuffer(arr.byteLength);
+  new Uint8Array(buf).set(arr);
+  return buf;
+}
 
 async function importKey(secret: string): Promise<CryptoKey> {
   return crypto.subtle.importKey('raw', utf8(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign', 'verify']);

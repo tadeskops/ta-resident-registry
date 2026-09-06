@@ -25,7 +25,9 @@ export async function listAdmins(ctx: Ctx): Promise<Response> {
   if (!ctx.authRole || !isAtLeast(ctx.authRole, 'ADMIN')) return json(bad('admin only'), { status: 403, origin: ctx.url.origin });
   const { file } = await readAdmins(ctx.env);
   const floor = HARD_CODED_ADMINS.map(email => ({ email, name: '', system: true }));
-  const dynamic = file.items.filter(i => !HARD_CODED_ADMINS.includes(normEmail(i.email))).map(i => ({ ...i, system: false }));
+  const dynamic = file.items
+    .filter(i => !HARD_CODED_ADMINS.includes(normEmail(i.email)))
+    .map(i => ({ email: i.email, name: i.name || '', system: false }));
   return json(ok(floor.concat(dynamic)), { origin: ctx.url.origin });
 }
 
