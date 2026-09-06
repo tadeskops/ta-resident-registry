@@ -16,18 +16,24 @@ export async function otpRequest(ctx: Ctx): Promise<Response> {
   if (!isValidEmail(email)) {
     return json(ok({ sent: true }), { status: 202, origin: ctx.url.origin });
   }
+  let mockCode: string | undefined;
   try {
     const code = generateOtpCode();
     const store = otpStoreFor(ctx.env.OTP_KV);
     await store.put(email, code);
     const mail = mailSenderFor(ctx.env);
     await mail.sendOtpEmail(email, code);
+    // In noop mail mode (no real email delivery), echo the code back so the
+    // sign-in flow is completable without email infrastructure — matches the
+    // frontend mock-mode UX. Removed automatically when MAIL_PROVIDER is
+    // switched to a real sender (resend / mailchannels).
+    if ((ctx.env.MAIL_PROVIDER || 'noop') === 'noop') mockCode = code;
     ctx.env.OTP_KV && (await appendAudit(ctx.env, `auth.otp.request ${email}`));
   } catch (e) {
     console.error('otpRequest failed', e);
     // Still return 202 so we don't leak infra state.
   }
-  return json(ok({ sent: true }), { status: 202, origin: ctx.url.origin });
+  return json(ok(mockCode ? { sent: true, mockCode } : { sent: true }), { status: 202, origin: ctx.url.origin });
 }
 
 export async function otpVerify(ctx: Ctx): Promise<Response> {

@@ -66,16 +66,16 @@
 
       <div id="mockHint" class="trr-field-hint trr-hidden"
            style="margin-top:1rem; padding:0.6rem; background:var(--trr-warn-soft); color:#92400e; border-radius:6px; text-align:center;">
-        <i class="fas fa-flask"></i> Mock mode: the code is
-        <strong id="mockCode">—</strong>. In production, it will be emailed.
+        <i class="fas fa-flask"></i> Test mode: the code is
+        <strong id="mockCode">—</strong>. Configure a real mail sender to send by email.
       </div>
     </div>
   </main>
 
   <div data-trr-footer></div>
 
-  <script src="./assets/js/api.js?v=5"></script>
-  <script src="./assets/js/ui.js?v=5"></script>
+  <script src="./assets/js/api.js?v=6"></script>
+  <script src="./assets/js/ui.js?v=6"></script>
   <script>
     (async () => {
       TRR.UI.renderHeader();
@@ -110,10 +110,11 @@
         stepEmail.classList.add('trr-hidden');
         stepCode.classList.remove('trr-hidden');
         otpBoxes[0].focus();
-        if (TRR.API.isMock && mockCodeVal) {
+        // Show the code hint whenever the caller echoed one back, whether
+        // that's the client mock or the worker's noop-mail mode.
+        if (mockCodeVal) {
           mockHint.classList.remove('trr-hidden');
           mockCode.textContent = mockCodeVal;
-          // Pre-fill so previewers don't have to type
           mockCodeVal.split('').forEach((ch, i) => { if (otpBoxes[i]) otpBoxes[i].value = ch; });
         }
       }
@@ -193,7 +194,8 @@
         try {
           const result = await TRR.API.otpRequest(currentEmail);
           TRR.UI.toast('New code sent.', 'ok');
-          if (TRR.API.isMock && result && result.mockCode) {
+          if (result && result.mockCode) {
+            mockHint.classList.remove('trr-hidden');
             mockCode.textContent = result.mockCode;
             result.mockCode.split('').forEach((ch, i) => { if (otpBoxes[i]) otpBoxes[i].value = ch; });
           }
