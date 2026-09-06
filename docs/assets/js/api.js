@@ -9,8 +9,39 @@
      Worker (see REQUIREMENT.md §6 for the route contract).
    ========================================================================= */
 (function () {
-  const LIVE_BASE = (typeof window !== 'undefined' && window.__TRR_API__) || '';
-  const MOCK = !LIVE_BASE || window.__TRR_MOCK__ === true;
+  const INLINE_BASE = (typeof window !== 'undefined' && window.__TRR_API__) || '';
+  let RESOLVED_LIVE_BASE = INLINE_BASE;
+  const FORCE_MOCK = typeof window !== 'undefined' && window.__TRR_MOCK__ === true;
+
+  // Loaded once from docs/config/env.json so switching to a live worker
+  // is a one-JSON-field edit rather than an HTML change.
+  let envLoadPromise = null;
+  function loadEnvConfig() {
+    if (envLoadPromise) return envLoadPromise;
+    envLoadPromise = (async () => {
+      if (RESOLVED_LIVE_BASE) return; // already set inline
+      try {
+        const res = await fetch('./config/env.json', { cache: 'no-cache' });
+        if (!res.ok) return;
+        const j = await res.json();
+        if (j && typeof j.apiBase === 'string' && j.apiBase.trim()) {
+          RESOLVED_LIVE_BASE = j.apiBase.trim().replace(/\/$/, '');
+        }
+      } catch (_e) { /* stay in mock */ }
+    })();
+    return envLoadPromise;
+  }
+
+  function isMock() {
+    if (FORCE_MOCK) return true;
+    return !RESOLVED_LIVE_BASE;
+  }
+
+  async function ensureMode() {
+    if (FORCE_MOCK) return 'mock';
+    await loadEnvConfig();
+    return RESOLVED_LIVE_BASE ? 'live' : 'mock';
+  }
 
   const TOKEN_KEY = 'trr_token';
   const EMAIL_KEY = 'trr_email';
@@ -75,10 +106,13 @@
   }
 
   async function liveFetch(path, opts = {}) {
+    await loadEnvConfig();
+    const base = RESOLVED_LIVE_BASE;
+    if (!base) throw new Error('API base is not configured (mock mode active).');
     const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
     const t = localStorage.getItem(TOKEN_KEY);
     if (t) headers['Authorization'] = 'Bearer ' + t;
-    const res = await fetch(LIVE_BASE.replace(/\/$/, '') + path, {
+    const res = await fetch(base.replace(/\/$/, '') + path, {
       method: opts.method || 'GET',
       headers,
       body: opts.body ? JSON.stringify(opts.body) : undefined,
@@ -287,8 +321,19 @@
     return mockListManagers();
   }
 
+  // Route each surface method through ensureMode() so mock vs live is
+  // decided after env.json has been consulted, not at page-load time.
+  function dispatch(mockFn, liveArgsFn) {
+    return async (...args) => {
+      const mode = await ensureMode();
+      if (mode === 'mock') return mockFn(...args);
+      const [path, opts] = liveArgsFn(...args);
+      return liveFetch(path, opts);
+    };
+  }
+
   const API = {
-    isMock: MOCK,
+    get isMock() { return isMock(); },
     isSignedIn: () => !!localStorage.getItem(TOKEN_KEY),
     currentEmail: () => localStorage.getItem(EMAIL_KEY) || '',
     currentRole: () => {
@@ -304,32 +349,33 @@
       localStorage.removeItem(TOKEN_KEY);
       localStorage.removeItem(EMAIL_KEY);
     },
-    otpRequest: (email) => MOCK ? mockOtpRequest(email) : liveFetch('/auth/otp/request', { method: 'POST', body: { email } }),
-    otpVerify: (email, code) => MOCK ? mockOtpVerify(email, code) : liveFetch('/auth/otp/verify', { method: 'POST', body: { email, code } }),
-    whoami: async () => {
-      if (MOCK) {
+    otpRequest: dispatch(mockOtpRequest, (email) => ['/auth/otp/request', { method: 'POST', body: { email } }]),
+    otpVerify: dispatch(mockOtpVerify, (email, code) => ['/auth/otp/verify', { method: 'POST', body: { email, code } }]),
+    whoami: dispatch(
+      async () => {
         const email = localStorage.getItem(EMAIL_KEY);
         if (!email) return null;
         return { email, role: roleFor(email) };
-      }
-      return liveFetch('/whoami');
-    },
-    getSite: () => MOCK ? mockGetSite() : liveFetch('/config'),
-    putSitePatch: (patch) => MOCK ? mockPutSitePatch(patch) : liveFetch('/config/site', { method: 'PUT', body: patch }),
-    getMyRecord: () => MOCK ? mockGetMyRecord() : liveFetch('/residents/me'),
-    putMyRecord: (rec) => MOCK ? mockPutMyRecord(rec) : liveFetch('/residents/me', { method: 'PUT', body: rec }),
-    submitMyRecord: () => MOCK ? mockSubmitMyRecord() : liveFetch('/residents/me/submit', { method: 'POST' }),
-    listRecords: () => MOCK ? mockListRecords() : liveFetch('/residents'),
-    getRecord: (tower, flat) => MOCK ? mockGetRecord(tower, flat) : liveFetch(`/residents/${encodeURIComponent(tower)}/${encodeURIComponent(flat)}`),
-    verifyRecord: (tower, flat) => MOCK ? mockVerifyRecord(tower, flat) : liveFetch(`/residents/${encodeURIComponent(tower)}/${encodeURIComponent(flat)}/verify`, { method: 'POST' }),
-    sendBackRecord: (tower, flat, note) => MOCK ? mockSendBackRecord(tower, flat, note) : liveFetch(`/residents/${encodeURIComponent(tower)}/${encodeURIComponent(flat)}/send-back`, { method: 'POST', body: { note } }),
-    listAdmins: () => MOCK ? mockListAdmins() : liveFetch('/config/admins'),
-    addAdmin: (email, name) => MOCK ? mockAddAdmin(email, name) : liveFetch('/config/admins', { method: 'POST', body: { email, name } }),
-    removeAdmin: (email) => MOCK ? mockRemoveAdmin(email) : liveFetch('/config/admins/' + encodeURIComponent(email), { method: 'DELETE' }),
-    listManagers: () => MOCK ? mockListManagers() : liveFetch('/config/managers'),
-    addManager: (email, name) => MOCK ? mockAddManager(email, name) : liveFetch('/config/managers', { method: 'POST', body: { email, name } }),
-    removeManager: (email) => MOCK ? mockRemoveManager(email) : liveFetch('/config/managers/' + encodeURIComponent(email), { method: 'DELETE' }),
+      },
+      () => ['/whoami', {}],
+    ),
+    getSite: dispatch(mockGetSite, () => ['/config', {}]),
+    putSitePatch: dispatch(mockPutSitePatch, (patch) => ['/config/site', { method: 'PUT', body: patch }]),
+    getMyRecord: dispatch(mockGetMyRecord, () => ['/residents/me', {}]),
+    putMyRecord: dispatch(mockPutMyRecord, (rec) => ['/residents/me', { method: 'PUT', body: rec }]),
+    submitMyRecord: dispatch(mockSubmitMyRecord, () => ['/residents/me/submit', { method: 'POST' }]),
+    listRecords: dispatch(mockListRecords, () => ['/residents', {}]),
+    getRecord: dispatch(mockGetRecord, (tower, flat) => [`/residents/${encodeURIComponent(tower)}/${encodeURIComponent(flat)}`, {}]),
+    verifyRecord: dispatch(mockVerifyRecord, (tower, flat) => [`/residents/${encodeURIComponent(tower)}/${encodeURIComponent(flat)}/verify`, { method: 'POST' }]),
+    sendBackRecord: dispatch(mockSendBackRecord, (tower, flat, note) => [`/residents/${encodeURIComponent(tower)}/${encodeURIComponent(flat)}/send-back`, { method: 'POST', body: { note } }]),
+    listAdmins: dispatch(mockListAdmins, () => ['/config/admins', {}]),
+    addAdmin: dispatch(mockAddAdmin, (email, name) => ['/config/admins', { method: 'POST', body: { email, name } }]),
+    removeAdmin: dispatch(mockRemoveAdmin, (email) => ['/config/admins/' + encodeURIComponent(email), { method: 'DELETE' }]),
+    listManagers: dispatch(mockListManagers, () => ['/config/managers', {}]),
+    addManager: dispatch(mockAddManager, (email, name) => ['/config/managers', { method: 'POST', body: { email, name } }]),
+    removeManager: dispatch(mockRemoveManager, (email) => ['/config/managers/' + encodeURIComponent(email), { method: 'DELETE' }]),
     hardCodedAdmins: () => HARD_CODED_ADMINS.slice(),
+    resolvedApiBase: async () => { await ensureMode(); return RESOLVED_LIVE_BASE || null; },
   };
 
   window.TRR = window.TRR || {};

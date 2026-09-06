@@ -1,0 +1,89 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - '.github/workflows/test.yml'
+  pull_request:
+    paths:
+      - 'worker/**'
+      - '.github/workflows/test.yml'
+  workflow_dispatch:
+
+jobs:
+  test-worker:
+    name: Worker · typecheck + vitest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: worker/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Vitest
+        run: npx vitest run --reporter=default
+
+  parse-frontend:
+    name: Frontend · JS parse checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Parse-check external JS
+        run: |
+          node --check docs/assets/js/api.js
+          node --check docs/assets/js/ui.js
+
+      - name: Parse-check inline HTML scripts
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const { execSync } = require('child_process');
+          const os = require('os');
+          const pages = ['index','signin','my-details','managers','privacy','settings'];
+          let anyFail = false;
+          for (const p of pages) {
+            const html = fs.readFileSync(path.join('docs', p + '.html'), 'utf8');
+            const scripts = [...html.matchAll(/<script>\s*([\s\S]+?)<\/script>/g)];
+            scripts.forEach((m, i) => {
+              const tmp = path.join(os.tmpdir(), `_trrci_${p}_${i}.js`);
+              fs.writeFileSync(tmp, m[1]);
+              try {
+                execSync(`node --check "${tmp}"`, { stdio: 'inherit' });
+                console.log(`OK: ${p}.html block ${i}`);
+              } catch {
+                anyFail = true;
+                console.error(`FAIL: ${p}.html block ${i}`);
+              }
+            });
+          }
+          if (anyFail) process.exit(1);
+          NODE
+
+      - name: Validate JSON configs
+        run: |
+          node -e "JSON.parse(require('fs').readFileSync('config/site.json','utf8')); console.log('root/site.json OK')"
+          node -e "JSON.parse(require('fs').readFileSync('docs/config/site.json','utf8')); console.log('docs/site.json OK')"
+          node -e "JSON.parse(require('fs').readFileSync('config/admins.json','utf8')); console.log('admins.json OK')"
+          node -e "JSON.parse(require('fs').readFileSync('config/managers.json','utf8')); console.log('managers.json OK')"

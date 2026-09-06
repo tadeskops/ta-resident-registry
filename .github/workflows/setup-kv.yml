@@ -1,0 +1,64 @@
+name: Setup KV namespace (one-time)
+
+# Creates the OTP_KV namespace in Cloudflare and prints the id.
+# Run this ONCE via the Actions tab → Setup KV namespace → Run workflow.
+# After it runs, copy the id from the summary and paste it into
+# worker/wrangler.toml under [[kv_namespaces]] binding = "OTP_KV".
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-kv:
+    name: Create OTP_KV namespace
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: worker/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+
+      - name: Create OTP_KV
+        id: create
+        run: |
+          set -e
+          output="$(npx wrangler kv:namespace create OTP_KV 2>&1 || true)"
+          echo "$output"
+          id="$(echo "$output" | grep -oE 'id[[:space:]]*=[[:space:]]*"[^"]+"' | head -n1 | sed -E 's/.*"([^"]+)"/\1/')"
+          if [ -z "$id" ]; then
+            echo "New create did not return an id — probably already exists. Listing..."
+            list="$(npx wrangler kv:namespace list 2>&1 || true)"
+            echo "$list"
+            id="$(echo "$list" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{const m=s.match(/\[[\s\S]*\]/);if(!m)return;const arr=JSON.parse(m[0]);const hit=arr.find(x=>x.title&&x.title.endsWith('OTP_KV'));if(hit)process.stdout.write(hit.id);}catch(e){}});")"
+          fi
+          if [ -z "$id" ]; then
+            echo "::error::Could not resolve OTP_KV namespace id"
+            exit 1
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        run: |
+          echo "### OTP_KV namespace" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**id:** \`${{ steps.create.outputs.id }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Paste this into \`worker/wrangler.toml\`:" >> $GITHUB_STEP_SUMMARY
+          echo '```toml' >> $GITHUB_STEP_SUMMARY
+          echo '[[kv_namespaces]]' >> $GITHUB_STEP_SUMMARY
+          echo 'binding = "OTP_KV"' >> $GITHUB_STEP_SUMMARY
+          echo "id = \"${{ steps.create.outputs.id }}\"" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
