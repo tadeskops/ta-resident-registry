@@ -17,7 +17,7 @@
   const MOCK_OTP_KEY = 'trr_mock_otp';
   const MOCK_RECORDS_KEY = 'trr_mock_records';
   const MOCK_ADMINS = new Set(['admin@example.com']);
-  const MOCK_COMMITTEE = new Set(['committee@example.com', 'chair@example.com']);
+  const MOCK_MANAGERS = new Set(['manager@example.com', 'chair@example.com']);
 
   function readRecords() {
     try { return JSON.parse(localStorage.getItem(MOCK_RECORDS_KEY) || '{}'); }
@@ -30,7 +30,7 @@
     const e = String(email || '').trim().toLowerCase();
     if (!e) return 'UNKNOWN';
     if (MOCK_ADMINS.has(e)) return 'ADMIN';
-    if (MOCK_COMMITTEE.has(e)) return 'COMMITTEE';
+    if (MOCK_MANAGERS.has(e)) return 'MANAGER';
     return 'RESIDENT';
   }
 

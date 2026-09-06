@@ -3,8 +3,8 @@
 A dedicated resident-information portal for the Management Committee of
 The Address (Tower Apartments). Residents sign in with **any** email
 address (Gmail, Outlook, Yahoo, iCloud, custom domain — anything) via a
-one-time code, then fill in their household details. The committee gets
-a directory, completion tracking, and CSV export.
+one-time code, then fill in their household details. The Resident
+Registry Managers get a directory, completion tracking, and CSV export.
 
 This repository is deliberately **separate** from
 [`ta-society-helpdesk`](../ta-society-helpdesk) so resident KYC / PII

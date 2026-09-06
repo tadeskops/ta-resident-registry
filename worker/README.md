@@ -9,7 +9,7 @@ fills in:
 - `/auth/otp/verify` — hash compare + mint JWT (HS256, `exp=+8h`).
 - `/residents/me` GET/PUT — read/write the caller's flat JSON in the
   private data repo via GitHub Contents API.
-- `/residents` (COMMITTEE+) — GitHub **GraphQL batched read** (see
+- `/residents` (MANAGER+) — GitHub **GraphQL batched read** (see
   workspace `debugging.md` — the 50-subrequest cap silently truncates
   bulk reads).
 

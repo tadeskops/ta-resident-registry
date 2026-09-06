@@ -4,7 +4,7 @@
 
 ```
                     ┌────────────────────────────┐
-   Resident/Committee│  GitHub Pages (docs/)      │
+   Resident/Manager  │  GitHub Pages (docs/)      │
    ─────────────────>│  static HTML + CSS + JS    │
                     │  tadeskops.github.io/...    │
                     └──────────────┬─────────────┘
@@ -79,7 +79,7 @@
 | OTP brute force | 6 digits × max 5 attempts × 10-min TTL → 1 in 200k per code. Combined with per-email + per-IP rate limits. |
 | Replay of intercepted JWT | Short `exp` (8h). Rotate `JWT_SECRET` per quarter. Revocation list in KV for emergency lockouts. |
 | Photo upload abuse | MIME whitelist (jpg/png/webp), 2 MB cap, filename sanitisation, stored under `photos/<tower>/<flat>/`. |
-| Committee viewing PII of unrelated flats | RBAC enforced server-side per route. Client role hints never trusted. |
+| Registry Manager viewing PII of unrelated flats | RBAC enforced server-side per route. Client role hints never trusted. |
 | Cloudflare subrequest cap silently truncating directory | GraphQL batched bulk read + explicit `expected === received` assertion in `/residents` handler; fail loudly, don't blank. |
 | Repo secrets leaked in commits | `.gitignore` covers `.dev.vars`, `.wrangler/`. GitHub PAT / JWT secret only in `wrangler secret put`, never in `wrangler.toml`. |
 | Mojibake corruption on bulk edits | Use the `[System.IO.File]::ReadAllText/WriteAllText` + BOM-less UTF-8 pattern (see debugging memory). Never `Get-Content -Raw` + `Set-Content -Encoding UTF8` round-trips. |

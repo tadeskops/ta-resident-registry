@@ -40,8 +40,8 @@
         <a class="trr-btn trr-btn-primary" href="./my-details.html">
           <i class="fas fa-id-card"></i> My household details
         </a>
-        <a class="trr-btn trr-btn-secondary trr-hidden" id="committeeLink" href="./committee.html">
-          <i class="fas fa-clipboard-list"></i> Committee dashboard
+        <a class="trr-btn trr-btn-secondary trr-hidden" id="managersLink" href="./managers.html">
+          <i class="fas fa-clipboard-list"></i> Registry Managers dashboard
         </a>
       </div>
     </section>
@@ -56,7 +56,7 @@
         <li>One emergency contact.</li>
       </ul>
       <p class="trr-card-sub" style="margin-top:0.75rem;">
-        Data stays on the committee's private repository, is never sold or
+        Data stays on the Committee's private repository, is never sold or
         shared with third parties, and you can request deletion at any time.
         Read the full <a href="./privacy.html">privacy notice</a>.
       </p>
@@ -77,8 +77,8 @@
         inCard.classList.remove('trr-hidden');
         document.getElementById('signedInWho').textContent =
           'Signed in as ' + TRR.API.currentEmail() + ' (' + TRR.API.currentRole() + ').';
-        if (['COMMITTEE', 'ADMIN'].includes(TRR.API.currentRole())) {
-          document.getElementById('committeeLink').classList.remove('trr-hidden');
+        if (['MANAGER', 'ADMIN'].includes(TRR.API.currentRole())) {
+          document.getElementById('managersLink').classList.remove('trr-hidden');
         }
       }
     })();

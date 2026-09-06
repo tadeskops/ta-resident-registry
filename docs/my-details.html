@@ -18,7 +18,7 @@
         <p class="trr-page-sub">
           Fill or update your record and click <strong>Save</strong>. When
           everything is accurate, click <strong>Submit for review</strong> so
-          the committee can verify it.
+          a Resident Registry Manager can verify it.
         </p>
       </div>
       <div id="statusBadge"></div>
@@ -104,7 +104,7 @@
       <!-- Emergency contact -->
       <section class="trr-card">
         <h2 class="trr-card-h"><i class="fas fa-phone-volume"></i> Emergency contact</h2>
-        <p class="trr-card-sub">Someone the committee can call if we can't reach you.</p>
+        <p class="trr-card-sub">Someone the Resident Registry Manager can call if we can't reach you.</p>
         <div class="trr-row-3">
           <div class="trr-field">
             <label for="eName">Name <span class="trr-req">*</span></label>
@@ -394,7 +394,7 @@
         try {
           const submitted = await TRR.API.submitMyRecord();
           paintStatus(submitted.status);
-          TRR.UI.toast('Submitted for committee review. Thank you!', 'ok');
+          TRR.UI.toast('Submitted for review. Thank you!', 'ok');
         } catch (err) {
           TRR.UI.toast(err.message || 'Submit failed.', 'err');
         }

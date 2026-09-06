@@ -116,7 +116,7 @@ in this public repo. Enforced three ways:
    If it prints anything, abort the push.
 
 Committee and admin email lists likewise stay in `trr_record`. The
-`config/committee.json` and `config/admins.json` files in **this** repo
+`config/managers.json` and `config/admins.json` files in **this** repo
 are empty scaffolds and must remain empty.
 
 ## 6. Branch strategy

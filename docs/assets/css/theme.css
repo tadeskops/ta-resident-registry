@@ -411,7 +411,7 @@ main.trr-main.trr-main-wide { max-width: 1080px; }
 }
 
 /* -------------------------------------------------------------------------
-   Directory table (committee view)
+   Directory table (registry manager view)
    ------------------------------------------------------------------------- */
 .trr-table-wrap { overflow-x: auto; }
 .trr-table {

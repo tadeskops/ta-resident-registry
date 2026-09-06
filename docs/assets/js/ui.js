@@ -81,7 +81,7 @@
       return false;
     }
     if (role) {
-      const chain = ['UNKNOWN', 'RESIDENT', 'COMMITTEE', 'ADMIN'];
+      const chain = ['UNKNOWN', 'RESIDENT', 'MANAGER', 'ADMIN'];
       const need = chain.indexOf(role);
       const have = chain.indexOf(API.currentRole());
       if (need === -1 || have < need) {

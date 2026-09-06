@@ -2,7 +2,7 @@
 <html lang="en-IN">
 <head>
   <meta charset="utf-8" />
-  <title>Committee dashboard · Resident Registry</title>
+  <title>Registry Managers dashboard · Resident Registry</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0d9488" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -12,7 +12,7 @@
   <div data-trr-header></div>
 
   <main class="trr-main trr-main-wide">
-    <h1 class="trr-page-title">Committee dashboard</h1>
+    <h1 class="trr-page-title">Registry Managers dashboard</h1>
     <p class="trr-page-sub">Directory + completion tracking across all towers.</p>
 
     <div class="trr-kpi-grid">
@@ -54,7 +54,7 @@
     (async () => {
       TRR.UI.renderHeader();
       TRR.UI.renderFooter();
-      if (!TRR.UI.requireAuth('COMMITTEE')) return;
+      if (!TRR.UI.requireAuth('MANAGER')) return;
 
       const rowsEl = document.getElementById('rows');
       const list = await TRR.API.listRecords();

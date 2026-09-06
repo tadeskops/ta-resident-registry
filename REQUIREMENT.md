@@ -4,7 +4,7 @@
 - **Owner:** The Address Management Committee
 - **Sibling repo (design-reference only):** `ta-society-helpdesk`
 - **Public code repo:** `tadeskops/ta-resident-registry` (this repo)
-- **Private data repo:** `tadeskops/trr_record` (residents, admins, committee, audit log)
+- **Private data repo:** `tadeskops/trr_record` (residents, admins, managers, audit log)
 
 ---
 
@@ -19,8 +19,8 @@ neither complete nor authoritative, and its Google-only sign-in shuts
 out residents who use Outlook, Yahoo, iCloud, or work-domain email.
 
 This registry is a **single-purpose portal**: residents log in, fill
-their household form, and are done. The committee can browse, verify,
-and export.
+their household form, and are done. The Resident Registry Managers can
+browse, verify, and export.
 
 ## 2. Non-goals
 
@@ -38,14 +38,19 @@ Simplified role chain — no capability tags in v1:
 
 | Role | Access |
 |---|---|
-| `ADMIN` | Everything: manage committee list, delete records, export. |
-| `COMMITTEE` | Read all resident records, mark verified / send-back, send reminders, export CSV. |
+| `ADMIN` | Everything: manage manager list, delete records, export. |
+| `MANAGER` | Read all resident records, mark verified / send-back, send reminders, export CSV. |
 | `RESIDENT` | Read + write **their own** household record only. |
 | `UNKNOWN` (signed out) | Nothing except `signin.html`. |
 
 Membership is defined in `config/admins.json` and
-`config/committee.json` (list of email addresses). Everyone else who
+`config/managers.json` (list of email addresses). Everyone else who
 successfully signs in becomes `RESIDENT`.
+
+> `MANAGER` is short for **Resident Registry Manager** — the
+> app-level role that reads the resident directory. Not to be
+> confused with "The Address Management Committee" (the organisation
+> body / data controller referenced in §11).
 
 ## 4. Data captured per household
 
@@ -77,19 +82,19 @@ parking slot (if allotted).
 Name, relation, mobile, alternate mobile (optional).
 
 ### 4.6 Explicitly OUT of scope in v1
-The following are **not** collected. Revisit when the committee
+The following are **not** collected. Revisit when the Committee
 decides to expand scope:
 - Photo uploads (primary resident or family)
 - KYC documents (Aadhaar / PAN / rental agreement)
 - Domestic help & drivers
 - Pets
-- Move-out flow (Q’11 deferred — for v1 committee edits the record
-  directly if a resident moves out)
+- Move-out flow (Q’11 deferred — for v1 an ADMIN or MANAGER edits the
+  record directly if a resident moves out)
 
 ### 4.7 Metadata (system-managed)
 - `createdAt`, `updatedAt` — ISO timestamps
 - `submittedAt` — when resident marks record complete
-- `verifiedAt`, `verifiedBy` — committee sign-off
+- `verifiedAt`, `verifiedBy` — Registry Manager sign-off
 - `status` — `draft` | `submitted` | `verified` | `sent-back` | `stale`
 - `sendBackNote` — free text when status is `sent-back`
 
@@ -136,7 +141,7 @@ sender).
 - JWT `exp` is 8 hours; client re-runs the OTP flow after expiry.
 - No password reset — there is no password.
 - Optional hardening for v2: WebAuthn / passkeys as second factor for
-  committee accounts.
+  ADMIN accounts.
 
 ## 6. Server routes
 
@@ -153,12 +158,12 @@ All routes JSON in/out, envelope `{ ok:true, data }` or `{ ok:false, error:"..."
 | PUT | `/residents/me` | RESIDENT+ | Upsert own household record |
 | POST | `/residents/me/submit` | RESIDENT+ | Mark `status=submitted` |
 | POST | `/uploads/photo` | RESIDENT+ | Multipart image upload → stored in photos repo |
-| GET | `/residents` | COMMITTEE+ | Paginated directory |
-| GET | `/residents/:tower/:flat` | COMMITTEE+ | Read one |
-| POST | `/residents/:tower/:flat/verify` | COMMITTEE+ | Mark verified |
-| POST | `/residents/:tower/:flat/send-back` | COMMITTEE+ | Set `sent-back` + note |
-| POST | `/residents/:tower/:flat/remind` | COMMITTEE+ | Trigger reminder email |
-| GET | `/reports/completion` | COMMITTEE+ | Per-tower submitted/verified/pending counts |
+| GET | `/residents` | MANAGER+ | Paginated directory |
+| GET | `/residents/:tower/:flat` | MANAGER+ | Read one |
+| POST | `/residents/:tower/:flat/verify` | MANAGER+ | Mark verified |
+| POST | `/residents/:tower/:flat/send-back` | MANAGER+ | Set `sent-back` + note |
+| POST | `/residents/:tower/:flat/remind` | MANAGER+ | Trigger reminder email |
+| GET | `/reports/completion` | MANAGER+ | Per-tower submitted/verified/pending counts |
 | GET | `/reports/export.csv` | ADMIN | CSV of every record |
 
 ## 7. Storage
@@ -170,7 +175,7 @@ a private repo, edited via the worker):
 config/
   site.json              — towers list, form caps, feature flags
   admins.json            — [{ email, name }]
-  committee.json         — [{ email, name }]
+  managers.json          — [{ email, name }]
   residents/
     A/1204.json          — one flat per file
     B/0507.json
@@ -183,8 +188,8 @@ photos/
 
 **Sharding by tower** keeps individual files small (<50 KB) and
 sidesteps the **Cloudflare Workers Free 50-subrequest cap** (see user
-memory `debugging.md`) for bulk reads: the committee directory route
-uses GitHub GraphQL batching (like the ta_vibehive fix) to fetch all
+memory `debugging.md`) for bulk reads: the directory route uses
+GitHub GraphQL batching (like the ta_vibehive fix) to fetch all
 flats in one round-trip.
 
 ## 8. Config `site.json` shape
@@ -226,20 +231,20 @@ flats in one round-trip.
 | `index.html` | Landing → routes signed-in users to their next action | any |
 | `signin.html` | Email OTP flow | anon |
 | `my-details.html` | Household form (edit + submit) | RESIDENT+ |
-| `committee.html` | Directory + completion dashboard + verify actions | COMMITTEE+ |
-| `admin.html` | Committee/admin roster management + CSV export | ADMIN |
+| `managers.html` | Directory + completion dashboard + verify actions | MANAGER+ |
+| `admin.html` | Admin + Manager roster management + CSV export | ADMIN |
 | `privacy.html` | PII handling notice | any |
 
 ## 10. Phasing
 
 - **Phase 1 (shipped 2026-09-06)**: HTML/CSS/JS prototypes in
   **mock mode** (`localStorage`-backed API stub). No worker deployed
-  yet. Committee previews UX and gives feedback. **No real resident
+  yet. Managers preview UX and give feedback. **No real resident
   data captured.**
 - **Phase 2**: Worker `/auth/otp/*` routes wired to Resend + JWT.
   `residents/me` GET/PUT wired to GitHub (`trr_record`). Real sign-
   ins go live only after sender-domain DNS is verified.
-- **Phase 3**: Committee dashboard live, verify + send-back workflow.
+- **Phase 3**: Registry Managers dashboard live, verify + send-back workflow.
 - **Phase 4**: Reminders cron (weekly digest to pending flats).
 - **Phase 5 (v2)**: Photo uploads (behind `FEATURE_TRR_PHOTOS`).
 - **Phase 6**: Admin roster editor + CSV export at the worker
@@ -288,4 +293,4 @@ flats in one round-trip.
 - WhatsApp reminders (email only in v1)
 - Tenant annual re-verification
 - Resident-initiated move-out flow
-- Two-eyes verification for committee sign-off
+- Two-eyes verification for MANAGER sign-off
