@@ -1,9 +1,12 @@
 import type { Role } from './env';
+import constants from '../../../docs/config/constants.json';
 
-export const HARD_CODED_ADMINS: readonly string[] = Object.freeze([
-  'samanasippa@gmail.com',
-  'ta.deskops@gmail.com',
-]);
+// Hard-coded admin floor: the two developer emails that always resolve to
+// ADMIN. Single source of truth is docs/config/constants.json so the
+// frontend mock mode and the worker stay in lock-step.
+export const HARD_CODED_ADMINS: readonly string[] = Object.freeze(
+  (constants.auth.hardCodedAdmins as Array<{ email: string; note?: string }>).map(a => a.email.toLowerCase())
+);
 
 export function normEmail(e: string | null | undefined): string {
   return String(e || '').trim().toLowerCase();

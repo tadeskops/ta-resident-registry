@@ -1,0 +1,19 @@
+{
+  "$schema-note": "Single source of truth for shared app constants. Consumed at build time by the Cloudflare Worker (worker/src/lib/*) and at runtime by the frontend (docs/assets/js/api.js). Cloudflare-specific values live in worker/wrangler.toml. Per-deploy runtime values live in docs/config/env.json.",
+  "society": {
+    "name": "The Address",
+    "shortName": "TA",
+    "contactEmail": "theaddressaundh@gmail.com"
+  },
+  "repos": {
+    "publicCode": { "owner": "tadeskops", "name": "ta-resident-registry" },
+    "privateData": { "owner": "tadeskops", "name": "trr_record" }
+  },
+  "auth": {
+    "hardCodedAdmins": [
+      { "email": "samanasippa@gmail.com", "note": "Parent / mentor developer" },
+      { "email": "ta.deskops@gmail.com", "note": "Web developer" }
+    ]
+  },
+  "workerUrlHint": "https://ta-resident-registry.tadeskops.workers.dev"
+}

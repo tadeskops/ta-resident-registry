@@ -1,5 +1,6 @@
 import type { Env } from './env';
 import { readJsonFile, writeJsonFile } from './github';
+import constants from '../../../docs/config/constants.json';
 
 export interface SiteConfig {
   version: number;
@@ -27,7 +28,7 @@ export interface SiteConfig {
 
 export const DEFAULT_SITE: SiteConfig = {
   version: 1,
-  society: { name: 'The Address', shortName: 'TA', contactEmail: 'theaddressaundh@gmail.com' },
+  society: { ...constants.society },
   towers: ['A', 'B', 'C', 'D'],
   forms: {
     resident: {

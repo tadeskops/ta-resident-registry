@@ -38,8 +38,8 @@
   }
 
   async function ensureMode() {
-    if (FORCE_MOCK) return 'mock';
-    await loadEnvConfig();
+    if (FORCE_MOCK) { await loadConstants(); return 'mock'; }
+    await Promise.all([loadEnvConfig(), loadConstants()]);
     return RESOLVED_LIVE_BASE ? 'live' : 'mock';
   }
 
@@ -51,13 +51,38 @@
   const MOCK_MANAGERS_KEY = 'trr_mock_managers';
   const MOCK_SITE_KEY = 'trr_mock_site';
 
-  // Server-authoritative in worker/src/lib/roles.ts; mirrored here for mock parity.
-  const HARD_CODED_ADMINS = Object.freeze([
+  // Bootstrapped from docs/config/constants.json — see loadConstants().
+  // These initial values are only used if the fetch fails (offline first
+  // load); the fetched constants file is authoritative.
+  let HARD_CODED_ADMINS = Object.freeze([
     'samanasippa@gmail.com',
     'ta.deskops@gmail.com',
   ]);
+  let DEFAULT_CONTACT_EMAIL = 'theaddressaundh@gmail.com';
 
-  const DEFAULT_CONTACT_EMAIL = 'theaddressaundh@gmail.com';
+  let constantsLoadPromise = null;
+  function loadConstants() {
+    if (constantsLoadPromise) return constantsLoadPromise;
+    constantsLoadPromise = (async () => {
+      try {
+        const res = await fetch('./config/constants.json', { cache: 'no-cache' });
+        if (!res.ok) return;
+        const j = await res.json();
+        if (j && j.auth && Array.isArray(j.auth.hardCodedAdmins)) {
+          HARD_CODED_ADMINS = Object.freeze(
+            j.auth.hardCodedAdmins.map(a => String(a.email || '').trim().toLowerCase()).filter(Boolean),
+          );
+        }
+        if (j && j.society && j.society.contactEmail) {
+          DEFAULT_CONTACT_EMAIL = String(j.society.contactEmail);
+        }
+      } catch (_e) { /* keep bootstrapped defaults */ }
+    })();
+    return constantsLoadPromise;
+  }
+  // Kick off the fetch on script load; consumers await it via ensureMode()/dispatch()
+  // implicitly through loadEnvConfig(), which runs alongside.
+  loadConstants();
 
   const DEFAULT_FORMS = Object.freeze({
     resident: Object.freeze({
@@ -376,6 +401,7 @@
     removeManager: dispatch(mockRemoveManager, (email) => ['/config/managers/' + encodeURIComponent(email), { method: 'DELETE' }]),
     hardCodedAdmins: () => HARD_CODED_ADMINS.slice(),
     resolvedApiBase: async () => { await ensureMode(); return RESOLVED_LIVE_BASE || null; },
+    resolvedConstants: async () => { await loadConstants(); return { hardCodedAdmins: HARD_CODED_ADMINS.slice(), contactEmailDefault: DEFAULT_CONTACT_EMAIL }; },
   };
 
   window.TRR = window.TRR || {};
