@@ -1,93 +1,70 @@
 /**
- * TA Resident Registry — Cloudflare Worker (skeleton).
- *
- * ⚠️  This file is a route-contract skeleton. Handlers are placeholders
- * that return { ok:false, error:'not implemented' } — wire them up in
- * Phase 2 (see ../REQUIREMENT.md §6 for the full contract and
- * ../ARCHITECTURE.md for env vars and threat model).
- *
- * Key constraints we're deliberately inheriting from ta-society-helpdesk:
- *   - Envelope is { ok:true, data } or { ok:false, error:'string' }.
- *     `error` is a plain string, not { message }.
- *   - FeatureDisabled = 503 (not 404).
- *   - Bulk directory reads MUST use GitHub GraphQL batching to stay under
- *     Cloudflare Workers Free 50-subrequest cap.
- *   - JWT stored in localStorage on the client (not sessionStorage).
+ * TA Resident Registry — Cloudflare Worker entry point.
+ * See REQUIREMENT.md §6 for the route contract and ARCHITECTURE.md for
+ * env vars, threat model, and deployment notes.
  */
+import type { Ctx, Env } from './lib/env';
+import { bad } from './lib/envelope';
+import { json, noContent } from './lib/http';
+import { verifyJwt } from './lib/jwt';
 
-interface Env {
-  JWT_SECRET: string;
-  GH_TOKEN: string;
-  GH_OWNER: string;
-  GH_REPO: string;
-  GH_BRANCH: string;
-  MAIL_PROVIDER: 'resend' | 'mailchannels';
-  RESEND_API_KEY?: string;
-  MAIL_FROM: string;
-}
+import { otpRequest, otpVerify } from './routes/auth';
+import { whoami } from './routes/whoami';
+import {
+  getConfig, putSitePatch,
+  listAdmins, addAdmin, removeAdmin,
+  listManagers, addManager, removeManager,
+} from './routes/config';
+import {
+  getMyRecord, putMyRecord, submitMyRecord,
+  listRecords, getRecordByFlat, verifyRecordRoute, sendBackRecordRoute,
+} from './routes/residents';
 
-type Ok<T> = { ok: true; data: T };
-type Bad = { ok: false; error: string };
-const ok = <T>(data: T): Ok<T> => ({ ok: true, data });
-const bad = (error: string): Bad => ({ ok: false, error });
-
-const CORS_HEADERS: Record<string, string> = {
-  'Access-Control-Allow-Origin': 'https://tadeskops.github.io',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Authorization,Content-Type',
-  'Access-Control-Max-Age': '86400',
-};
-
-function json(body: unknown, init: ResponseInit = {}): Response {
-  return new Response(JSON.stringify(body), {
-    status: init.status ?? 200,
-    headers: { 'Content-Type': 'application/json', ...CORS_HEADERS, ...(init.headers || {}) },
-  });
-}
-
-// -----------------------------------------------------------------------
-// Very small router.  Real code should extract to worker/src/router.ts.
-// -----------------------------------------------------------------------
-type Handler = (req: Request, env: Env, params: Record<string, string>) => Promise<Response>;
+type Handler = (ctx: Ctx) => Promise<Response>;
 interface Route { method: string; pattern: RegExp; keys: string[]; handler: Handler; }
 
 function route(method: string, path: string, handler: Handler): Route {
   const keys: string[] = [];
   const pattern = new RegExp(
-    '^' + path.replace(/:[a-zA-Z_]+/g, (m) => { keys.push(m.slice(1)); return '([^/]+)'; }) + '$'
+    '^' + path.replace(/:[a-zA-Z_]+/g, m => { keys.push(m.slice(1)); return '([^/]+)'; }) + '$',
   );
   return { method, pattern, keys, handler };
 }
 
 const ROUTES: Route[] = [
-  route('POST', '/auth/otp/request', notImplemented('auth.otp.request')),
-  route('POST', '/auth/otp/verify', notImplemented('auth.otp.verify')),
-  route('GET', '/whoami', notImplemented('whoami')),
-  route('GET', '/config', notImplemented('config')),
-
-  route('GET', '/residents/me', notImplemented('residents.me.get')),
-  route('PUT', '/residents/me', notImplemented('residents.me.put')),
-  route('POST', '/residents/me/submit', notImplemented('residents.me.submit')),
-
-  route('POST', '/uploads/photo', notImplemented('uploads.photo')),
-
-  route('GET', '/residents', notImplemented('residents.list')),
-  route('GET', '/residents/:tower/:flat', notImplemented('residents.get')),
-  route('POST', '/residents/:tower/:flat/verify', notImplemented('residents.verify')),
-  route('POST', '/residents/:tower/:flat/send-back', notImplemented('residents.sendback')),
-  route('POST', '/residents/:tower/:flat/remind', notImplemented('residents.remind')),
-
-  route('GET', '/reports/completion', notImplemented('reports.completion')),
-  route('GET', '/reports/export.csv', notImplemented('reports.export')),
+  route('POST',   '/auth/otp/request',                 otpRequest),
+  route('POST',   '/auth/otp/verify',                  otpVerify),
+  route('GET',    '/whoami',                           whoami),
+  route('GET',    '/config',                           getConfig),
+  route('PUT',    '/config/site',                      putSitePatch),
+  route('GET',    '/config/admins',                    listAdmins),
+  route('POST',   '/config/admins',                    addAdmin),
+  route('DELETE', '/config/admins/:email',             removeAdmin),
+  route('GET',    '/config/managers',                  listManagers),
+  route('POST',   '/config/managers',                  addManager),
+  route('DELETE', '/config/managers/:email',           removeManager),
+  route('GET',    '/residents/me',                     getMyRecord),
+  route('PUT',    '/residents/me',                     putMyRecord),
+  route('POST',   '/residents/me/submit',              submitMyRecord),
+  route('GET',    '/residents',                        listRecords),
+  route('GET',    '/residents/:tower/:flat',           getRecordByFlat),
+  route('POST',   '/residents/:tower/:flat/verify',    verifyRecordRoute),
+  route('POST',   '/residents/:tower/:flat/send-back', sendBackRecordRoute),
 ];
 
-function notImplemented(action: string): Handler {
-  return async () => json(bad(`not implemented: ${action}`), { status: 501 });
+async function decodeAuth(req: Request, env: Env): Promise<{ email: string; role: 'RESIDENT' | 'MANAGER' | 'ADMIN' } | null> {
+  const h = req.headers.get('Authorization') || req.headers.get('authorization');
+  if (!h || !h.startsWith('Bearer ')) return null;
+  const token = h.slice(7).trim();
+  const payload = await verifyJwt(token, env.JWT_SECRET);
+  if (!payload) return null;
+  return { email: payload.sub, role: payload.role as 'RESIDENT' | 'MANAGER' | 'ADMIN' };
 }
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
-    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
+    const origin = req.headers.get('Origin');
+    if (req.method === 'OPTIONS') return noContent(origin);
     const url = new URL(req.url);
     for (const r of ROUTES) {
       if (r.method !== req.method) continue;
@@ -95,12 +72,21 @@ export default {
       if (!m) continue;
       const params: Record<string, string> = {};
       r.keys.forEach((k, i) => (params[k] = decodeURIComponent(m[i + 1])));
+      const auth = await decodeAuth(req, env);
+      const ctx: Ctx = {
+        req, env, url, params,
+        authEmail: auth?.email,
+        authRole: auth?.role || 'UNKNOWN',
+      };
       try {
-        return await r.handler(req, env, params);
+        return await r.handler(ctx);
       } catch (err) {
-        return json(bad((err as Error).message || 'internal error'), { status: 500 });
+        console.error('handler error', err);
+        return json(bad((err as Error).message || 'internal error'), { status: 500, origin });
       }
     }
-    return json(bad('not found'), { status: 404 });
+    return json(bad('not found'), { status: 404, origin });
   },
 };
+
+export type { Env };

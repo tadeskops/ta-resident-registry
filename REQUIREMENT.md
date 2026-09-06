@@ -237,18 +237,31 @@ flats in one round-trip.
 
 ## 10. Phasing
 
-- **Phase 1 (shipped 2026-09-06)**: HTML/CSS/JS prototypes in
-  **mock mode** (`localStorage`-backed API stub). No worker deployed
-  yet. Managers preview UX and give feedback. **No real resident
-  data captured.**
-- **Phase 2**: Worker `/auth/otp/*` routes wired to Resend + JWT.
-  `residents/me` GET/PUT wired to GitHub (`trr_record`). Real sign-
-  ins go live only after sender-domain DNS is verified.
-- **Phase 3**: Registry Managers dashboard live, verify + send-back workflow.
+- **Phase 1 (shipped 2026-09-06, main = 4bca33e)**: HTML/CSS/JS
+  prototypes fully clickable in mock mode + admin editor + form
+  fields config + dark-navy/gold theme + TaLogo. No worker code
+  reachable; all data in `localStorage`.
+- **Phase 2 (code complete 2026-09-06, awaiting deploy)**: Full
+  Cloudflare Worker implementation in [worker/](worker/):
+  - JWT sign/verify (HS256, `sub=email`, `role`, exp 8h)
+  - Email OTP flow (Resend/MailChannels/noop pluggable)
+  - GitHub Contents API read/write to `trr_record` (per-flat storage
+    with per-tower index files)
+  - All 18 REST routes with envelope, CORS, RBAC (hard-coded floor +
+    dynamic roster)
+  - Vitest smoke tests (roles/jwt/otp/routes)
+  - `HARD_CODED_ADMINS = ['samanasippa@gmail.com', 'ta.deskops@gmail.com']`
+    mirrored server-side in `worker/src/lib/roles.ts`
+  - **Not deployed yet** — requires user's Cloudflare account, a
+    verified sender domain, `wrangler secret put JWT_SECRET`, PAT,
+    and (optionally) `RESEND_API_KEY`. Deployment playbook in
+    [worker/README.md](worker/README.md).
+- **Phase 3**: Committee dashboard UX polish; verify + send-back
+  workflow already implemented end-to-end (mock + worker).
 - **Phase 4**: Reminders cron (weekly digest to pending flats).
 - **Phase 5 (v2)**: Photo uploads (behind `FEATURE_TRR_PHOTOS`).
-- **Phase 6**: Admin roster editor + CSV export at the worker
-  (Phase 1 already has client-side CSV export).
+- **Phase 6**: Admin roster editor already implemented; CSV export
+  already implemented client-side. Server-side CSV export deferred.
 
 ## 11. Compliance notes
 

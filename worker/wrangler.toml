@@ -15,6 +15,7 @@ GH_BRANCH = "main"
 MAIL_PROVIDER = "resend"
 MAIL_FROM = "committee@theaddress.example"
 
+# Uncomment after `wrangler kv:namespace create OTP_KV`:
 # [[kv_namespaces]]
 # binding = "OTP_KV"
-# id = "…"           # `wrangler kv:namespace create OTP_KV`
+# id = "..."
