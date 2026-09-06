@@ -12,7 +12,7 @@ compatibility_date = "2025-01-01"
 GH_OWNER = "tadeskops"
 GH_REPO = "trr_record"
 GH_BRANCH = "main"
-MAIL_PROVIDER = "resend"
+MAIL_PROVIDER = "noop"
 MAIL_FROM = "committee@theaddress.example"
 
 # Uncomment after `wrangler kv:namespace create OTP_KV`:
