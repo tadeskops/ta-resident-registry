@@ -2,11 +2,12 @@
 <html lang="en-IN">
 <head>
   <meta charset="utf-8" />
+  <link rel="icon" href="./assets/images/TaLogo.png" type="image/png" />
   <title>Settings · Resident Registry</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0d9488" />
+  <meta name="theme-color" content="#1a1f2e" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="./assets/css/theme.css?v=2" />
+  <link rel="stylesheet" href="./assets/css/theme.css?v=3" />
 </head>
 <body>
   <div data-trr-header></div>
@@ -18,8 +19,8 @@
     <section class="trr-card">
       <h2 class="trr-card-h"><i class="fas fa-envelope"></i> Public contact email</h2>
       <p class="trr-card-sub">Shown to residents in the privacy notice and on the landing page.</p>
-      <form id="contactForm" style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end;" novalidate>
-        <div class="trr-field" style="flex:1 1 260px; margin-bottom:0;">
+      <form id="contactForm" class="trr-inline-form" novalidate>
+        <div class="trr-field">
           <label for="contactInput">Email address</label>
           <input type="email" id="contactInput" class="trr-input" required autocomplete="email" />
         </div>
@@ -32,16 +33,15 @@
     <section class="trr-card">
       <h2 class="trr-card-h"><i class="fas fa-user-shield"></i> Administrators</h2>
       <p class="trr-card-sub">
-        The two system admins are baked into the code and cannot be removed here.
-        Other admins are stored in <code>admins.json</code>.
+        Admins can add or remove other admins and Registry Managers, and configure the resident form.
       </p>
       <ul id="adminList" class="trr-subitem-list" style="margin-bottom:0.75rem;"></ul>
-      <form id="addAdminForm" style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end;" novalidate>
-        <div class="trr-field" style="flex:1 1 220px; margin-bottom:0;">
+      <form id="addAdminForm" class="trr-inline-form" novalidate>
+        <div class="trr-field">
           <label for="addAdminEmail">Add administrator</label>
           <input type="email" id="addAdminEmail" class="trr-input" placeholder="email@example.com" required />
         </div>
-        <div class="trr-field" style="flex:1 1 180px; margin-bottom:0;">
+        <div class="trr-field">
           <label for="addAdminName">Name (optional)</label>
           <input id="addAdminName" class="trr-input" placeholder="e.g. Chair" />
         </div>
@@ -57,12 +57,12 @@
         Users listed here get the <code>MANAGER</code> role on next sign-in. They can view the directory and verify records.
       </p>
       <ul id="managerList" class="trr-subitem-list" style="margin-bottom:0.75rem;"></ul>
-      <form id="addManagerForm" style="display:flex; gap:0.6rem; flex-wrap:wrap; align-items:flex-end;" novalidate>
-        <div class="trr-field" style="flex:1 1 220px; margin-bottom:0;">
+      <form id="addManagerForm" class="trr-inline-form" novalidate>
+        <div class="trr-field">
           <label for="addManagerEmail">Add Registry Manager</label>
           <input type="email" id="addManagerEmail" class="trr-input" placeholder="email@example.com" required />
         </div>
-        <div class="trr-field" style="flex:1 1 180px; margin-bottom:0;">
+        <div class="trr-field">
           <label for="addManagerName">Name (optional)</label>
           <input id="addManagerName" class="trr-input" placeholder="e.g. Secretary" />
         </div>
@@ -71,12 +71,35 @@
         </button>
       </form>
     </section>
+
+    <section class="trr-card">
+      <h2 class="trr-card-h"><i class="fas fa-sliders"></i> Resident form</h2>
+      <p class="trr-card-sub">
+        Choose which optional fields residents see when they fill their household details, and set list limits.
+      </p>
+      <div id="formFieldToggles" style="display:flex; flex-direction:column; gap:0.25rem; margin-bottom:1rem;"></div>
+      <div class="trr-row">
+        <div class="trr-field">
+          <label for="limitFamily">Max family members</label>
+          <input type="number" min="1" max="30" id="limitFamily" class="trr-input" />
+        </div>
+        <div class="trr-field">
+          <label for="limitVehicles">Max vehicles</label>
+          <input type="number" min="1" max="20" id="limitVehicles" class="trr-input" />
+        </div>
+      </div>
+      <div class="trr-actions">
+        <button type="button" class="trr-btn trr-btn-primary" id="saveFormFields">
+          <i class="fas fa-save"></i> Save form settings
+        </button>
+      </div>
+    </section>
   </main>
 
   <div data-trr-footer></div>
 
-  <script src="./assets/js/api.js?v=2"></script>
-  <script src="./assets/js/ui.js?v=2"></script>
+  <script src="./assets/js/api.js?v=3"></script>
+  <script src="./assets/js/ui.js?v=3"></script>
   <script>
     (async () => {
       TRR.UI.renderHeader();
@@ -104,20 +127,22 @@
         }
       });
 
-      // ---------- admin list ----------
+      // ---------- admin list (hides hard-coded floor from UI) ----------
       const adminList = document.getElementById('adminList');
       async function renderAdmins() {
-        const admins = await TRR.API.listAdmins();
+        const admins = (await TRR.API.listAdmins()).filter(a => !a.system);
+        if (!admins.length) {
+          adminList.innerHTML = '<li class="trr-empty">No additional administrators. Add one below.</li>';
+          return;
+        }
         adminList.innerHTML = admins.map(a => `
           <li class="trr-subitem" data-email="${esc(a.email)}">
             <div class="trr-subitem-h">
               <span>
-                ${a.system ? '<i class="fas fa-lock" style="color:var(--trr-muted);" aria-hidden="true"></i>' : '<i class="fas fa-user-shield" style="color:var(--trr-accent);" aria-hidden="true"></i>'}
+                <i class="fas fa-user-shield" style="color:var(--trr-primary);" aria-hidden="true"></i>
                 <strong>${esc(a.email)}</strong>${a.name ? ' · ' + esc(a.name) : ''}
               </span>
-              ${a.system
-                ? '<span class="trr-chip">System &mdash; non-removable</span>'
-                : '<button type="button" class="trr-btn trr-btn-danger" data-remove-admin>Remove</button>'}
+              <button type="button" class="trr-btn trr-btn-danger" data-remove-admin>Remove</button>
             </div>
           </li>
         `).join('');
@@ -201,6 +226,44 @@
           renderManagers();
         } catch (err) {
           TRR.UI.toast(err.message || 'Add failed.', 'err');
+        }
+      });
+
+      // ---------- form fields (which optional fields residents see) ----------
+      const FIELD_LABELS = [
+        ['showMoveInDate',      'Show move-in date (required for tenants)'],
+        ['showPriorAddress',    'Show prior address (optional)'],
+        ['showAltMobile',       'Show alternate mobile in emergency contact'],
+        ['showFamilySection',   'Show family members section'],
+        ['showVehiclesSection', 'Show vehicles section'],
+      ];
+      const fieldsWrap = document.getElementById('formFieldToggles');
+      const fields = (site.forms && site.forms.resident && site.forms.resident.fields) || {};
+      const limits = (site.forms && site.forms.resident && site.forms.resident.limits) || {};
+      fieldsWrap.innerHTML = FIELD_LABELS.map(([key, label]) => `
+        <label class="trr-toggle" for="tog_${key}">
+          <input type="checkbox" id="tog_${key}" data-field="${key}" ${fields[key] !== false ? 'checked' : ''} />
+          <span class="trr-toggle-track" aria-hidden="true"></span>
+          <span class="trr-toggle-label">${esc(label)}</span>
+        </label>
+      `).join('');
+      document.getElementById('limitFamily').value = limits.familyMembers ?? 12;
+      document.getElementById('limitVehicles').value = limits.vehicles ?? 6;
+
+      document.getElementById('saveFormFields').addEventListener('click', async () => {
+        const patchFields = {};
+        fieldsWrap.querySelectorAll('input[type=checkbox]').forEach(cb => {
+          patchFields[cb.getAttribute('data-field')] = cb.checked;
+        });
+        const patchLimits = {
+          familyMembers: Math.max(1, Math.min(30, parseInt(document.getElementById('limitFamily').value, 10) || 12)),
+          vehicles: Math.max(1, Math.min(20, parseInt(document.getElementById('limitVehicles').value, 10) || 6)),
+        };
+        try {
+          await TRR.API.putSitePatch({ forms: { resident: { fields: patchFields, limits: patchLimits } } });
+          TRR.UI.toast('Form settings saved.', 'ok');
+        } catch (err) {
+          TRR.UI.toast(err.message || 'Save failed.', 'err');
         }
       });
     })();

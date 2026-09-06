@@ -2,11 +2,12 @@
 <html lang="en-IN">
 <head>
   <meta charset="utf-8" />
+  <link rel="icon" href="./assets/images/TaLogo.png" type="image/png" />
   <title>Registry Managers dashboard · Resident Registry</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0d9488" />
+  <meta name="theme-color" content="#1a1f2e" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="./assets/css/theme.css?v=1" />
+  <link rel="stylesheet" href="./assets/css/theme.css?v=3" />
 </head>
 <body>
   <div data-trr-header></div>
@@ -47,8 +48,8 @@
   </main>
 
   <!-- Flat-detail overlay (hidden until a row is clicked) -->
-  <div id="flatOverlay" class="trr-hidden" style="position:fixed; inset:0; z-index:100; background:rgba(15,23,42,0.45); padding:2rem 1rem; overflow-y:auto;">
-    <div class="trr-card" style="max-width:640px; margin:0 auto; box-shadow:var(--trr-shadow-lg);">
+  <div id="flatOverlay" class="trr-overlay trr-hidden">
+    <div class="trr-overlay-panel">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; margin-bottom:0.75rem;">
         <div>
           <h2 class="trr-card-h" style="margin:0;" id="flatTitle">Flat</h2>
@@ -65,8 +66,8 @@
 
   <div data-trr-footer></div>
 
-  <script src="./assets/js/api.js?v=2"></script>
-  <script src="./assets/js/ui.js?v=2"></script>
+  <script src="./assets/js/api.js?v=3"></script>
+  <script src="./assets/js/ui.js?v=3"></script>
   <script>
     (async () => {
       TRR.UI.renderHeader();

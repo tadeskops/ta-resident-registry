@@ -2,11 +2,12 @@
 <html lang="en-IN">
 <head>
   <meta charset="utf-8" />
+  <link rel="icon" href="./assets/images/TaLogo.png" type="image/png" />
   <title>My household details · Resident Registry</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0d9488" />
+  <meta name="theme-color" content="#1a1f2e" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="./assets/css/theme.css?v=1" />
+  <link rel="stylesheet" href="./assets/css/theme.css?v=3" />
 </head>
 <body>
   <div data-trr-header></div>
@@ -46,12 +47,12 @@
           </div>
         </div>
         <div class="trr-row">
-          <div class="trr-field">
+          <div class="trr-field" data-trr-field="moveInDate">
             <label for="moveInDate">Move-in date</label>
             <input id="moveInDate" name="flat.moveInDate" class="trr-input" type="date" />
             <div class="trr-field-hint">Required for tenants.</div>
           </div>
-          <div class="trr-field">
+          <div class="trr-field" data-trr-field="priorAddress">
             <label for="priorAddress">Prior address (optional)</label>
             <input id="priorAddress" name="flat.priorAddress" class="trr-input"
                    placeholder="City &amp; area" />
@@ -84,7 +85,7 @@
       </section>
 
       <!-- Family members -->
-      <section class="trr-card">
+      <section class="trr-card" data-trr-field="familySection">
         <h2 class="trr-card-h"><i class="fas fa-users"></i> Family members</h2>
         <p class="trr-card-sub">Everyone living in this flat with you.</p>
         <div class="trr-subitem-list" id="familyList"></div>
@@ -94,7 +95,7 @@
       </section>
 
       <!-- Vehicles -->
-      <section class="trr-card">
+      <section class="trr-card" data-trr-field="vehiclesSection">
         <h2 class="trr-card-h"><i class="fas fa-car"></i> Vehicles</h2>
         <p class="trr-card-sub">Two- and four-wheelers registered to the flat.</p>
         <div class="trr-subitem-list" id="vehicleList"></div>
@@ -122,7 +123,7 @@
                    inputmode="tel" required />
           </div>
         </div>
-        <div class="trr-field">
+        <div class="trr-field" data-trr-field="altMobile">
           <label for="eMob2">Alternate mobile (optional)</label>
           <input id="eMob2" name="emergency.altMobile" class="trr-input" inputmode="tel" />
         </div>
@@ -141,42 +142,56 @@
 
   <div data-trr-footer></div>
 
-  <script src="./assets/js/api.js?v=2"></script>
-  <script src="./assets/js/ui.js?v=2"></script>
+  <script src="./assets/js/api.js?v=3"></script>
+  <script src="./assets/js/ui.js?v=3"></script>
   <script>
     (async () => {
       TRR.UI.renderHeader();
       TRR.UI.renderFooter();
       if (!TRR.UI.requireAuth('RESIDENT')) return;
 
-      // Load config for towers / occupancy options.
-      const cfg = await fetch('../config/site.json').then(r => r.ok ? r.json() : null).catch(() => null)
-                || await fetch('./config/site.json').then(r => r.ok ? r.json() : null).catch(() => null)
-                || {
-                  towers: ['A', 'B', 'C', 'D'],
-                  occupancyOptions: [
-                    { value: 'owner-occupied', label: 'Owner (living here)' },
-                    { value: 'owner', label: 'Owner (not living here)' },
-                    { value: 'tenant', label: 'Tenant' },
-                    { value: 'vacant', label: 'Vacant' }
-                  ],
-                  relationOptions: ['Spouse','Son','Daughter','Father','Mother','Brother','Sister','Other'],
-                  vehicleTypes: [
-                    { value:'2W', label:'Two-wheeler'},
-                    { value:'4W', label:'Four-wheeler'},
-                    { value:'EV-2W', label:'Electric two-wheeler'},
-                    { value:'EV-4W', label:'Electric four-wheeler'},
-                  ],
-                  limits: { familyMembers: 12, vehicles: 6 }
-                };
-
-      // Populate selects
+      // Load config for towers / occupancy options — via TRR.API.getSite so
+      // dev-mode + live-worker + admin overrides all work through one path.
+      const cfg = await TRR.API.getSite();
       const towerSel = document.getElementById('tower');
       towerSel.innerHTML = '<option value="">Select…</option>' +
-        (cfg.towers || []).map(t => `<option value="${t}">${t}</option>`).join('');
+        (cfg.towers || ['A','B','C','D']).map(t => `<option value="${t}">${t}</option>`).join('');
       const occSel = document.getElementById('occupancy');
+      const occupancyOptions = cfg.occupancyOptions || [
+        { value: 'owner-occupied', label: 'Owner (living here)' },
+        { value: 'owner', label: 'Owner (not living here)' },
+        { value: 'tenant', label: 'Tenant' },
+        { value: 'vacant', label: 'Vacant' }
+      ];
       occSel.innerHTML = '<option value="">Select…</option>' +
-        (cfg.occupancyOptions || []).map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+        occupancyOptions.map(o => `<option value="${o.value}">${o.label}</option>`).join('');
+      cfg.relationOptions = cfg.relationOptions || ['Spouse','Son','Daughter','Father','Mother','Brother','Sister','Other'];
+      cfg.vehicleTypes = cfg.vehicleTypes || [
+        { value:'2W', label:'Two-wheeler'},
+        { value:'4W', label:'Four-wheeler'},
+        { value:'EV-2W', label:'Electric two-wheeler'},
+        { value:'EV-4W', label:'Electric four-wheeler'},
+      ];
+
+      // Admin-configured field toggles
+      const fieldCfg = (cfg.forms && cfg.forms.resident && cfg.forms.resident.fields) || {};
+      const formLimits = (cfg.forms && cfg.forms.resident && cfg.forms.resident.limits) || cfg.limits || {};
+      function applyFieldToggles() {
+        // Hide/show optional fields by walking [data-trr-field]
+        const map = {
+          moveInDate: fieldCfg.showMoveInDate !== false,
+          priorAddress: fieldCfg.showPriorAddress !== false,
+          altMobile: fieldCfg.showAltMobile !== false,
+          familySection: fieldCfg.showFamilySection !== false,
+          vehiclesSection: fieldCfg.showVehiclesSection !== false,
+        };
+        Object.keys(map).forEach(key => {
+          document.querySelectorAll(`[data-trr-field="${key}"]`).forEach(el => {
+            el.classList.toggle('trr-hidden', !map[key]);
+          });
+        });
+      }
+      applyFieldToggles();
 
       // Pre-fill email from session
       document.getElementById('pEmail').value = TRR.API.currentEmail();

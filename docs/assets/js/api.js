@@ -28,6 +28,19 @@
 
   const DEFAULT_CONTACT_EMAIL = 'theaddressaundh@gmail.com';
 
+  const DEFAULT_FORMS = Object.freeze({
+    resident: Object.freeze({
+      fields: Object.freeze({
+        showMoveInDate: true,
+        showPriorAddress: true,
+        showAltMobile: true,
+        showFamilySection: true,
+        showVehiclesSection: true,
+      }),
+      limits: Object.freeze({ familyMembers: 12, vehicles: 6 }),
+    }),
+  });
+
   function readJsonKey(key, fallback) {
     try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; }
     catch (_e) { return fallback; }
@@ -188,17 +201,41 @@
 
   async function mockGetSite() {
     const base = (typeof window !== 'undefined' && window.__TRR_SITE_BASE__) || {};
+    let disk = null;
+    try {
+      const res = await fetch('./config/site.json', { cache: 'no-cache' });
+      if (res.ok) disk = await res.json();
+    } catch (_e) { /* not fatal */ }
     const override = readSiteOverride();
-    const merged = Object.assign({}, base, override);
-    merged.society = Object.assign({}, base.society || {}, override.society || {});
+    const merged = Object.assign({}, base, disk || {}, override);
+    merged.society = Object.assign({}, (base.society || {}), (disk && disk.society) || {}, override.society || {});
     if (!merged.society.contactEmail) merged.society.contactEmail = DEFAULT_CONTACT_EMAIL;
+    // Deep-ish merge forms.resident
+    const dr = (disk && disk.forms && disk.forms.resident) || {};
+    const or = (override.forms && override.forms.resident) || {};
+    merged.forms = Object.assign({}, merged.forms || {}, {
+      resident: {
+        fields: Object.assign({}, DEFAULT_FORMS.resident.fields, dr.fields || {}, or.fields || {}),
+        limits: Object.assign({}, DEFAULT_FORMS.resident.limits, dr.limits || {}, or.limits || {}),
+      },
+    });
     return merged;
   }
   async function mockPutSitePatch(patch) {
     if (!patch || typeof patch !== 'object') throw new Error('Invalid site patch.');
     const cur = readSiteOverride();
-    const merged = Object.assign({}, cur, patch);
+    const merged = Object.assign({}, cur);
     if (patch.society) merged.society = Object.assign({}, cur.society || {}, patch.society);
+    if (patch.forms) {
+      merged.forms = Object.assign({}, cur.forms || {});
+      if (patch.forms.resident) {
+        const curR = (cur.forms && cur.forms.resident) || {};
+        merged.forms.resident = {
+          fields: Object.assign({}, curR.fields || {}, patch.forms.resident.fields || {}),
+          limits: Object.assign({}, curR.limits || {}, patch.forms.resident.limits || {}),
+        };
+      }
+    }
     writeSiteOverride(merged);
     return mockGetSite();
   }

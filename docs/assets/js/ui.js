@@ -34,25 +34,28 @@
     const email = signedIn ? API.currentEmail() : '';
     const role = signedIn ? API.currentRole() : '';
     root.innerHTML = `
-      <header class="trr-header">
-        <a class="trr-brand" href="./index.html" aria-label="Resident Registry home">
-          <span class="trr-brand-logo" aria-hidden="true"><i class="fas fa-home"></i></span>
-          <span>
-            <div class="trr-brand-title">Resident Registry</div>
-            <div class="trr-brand-sub">The Address · Tower Apartments</div>
-          </span>
-        </a>
-        <div class="trr-header-actions">
-          ${signedIn ? `
-            <span class="trr-who" title="${email}">${email} · <span class="trr-chip trr-chip-info">${role}</span></span>
-            <button type="button" class="trr-btn trr-btn-ghost" data-trr-signout>
-              <i class="fas fa-sign-out-alt"></i> Sign out
-            </button>
-          ` : `
-            <a class="trr-btn trr-btn-primary" href="./signin.html">
-              <i class="fas fa-sign-in-alt"></i> Sign in
-            </a>
-          `}
+      <header class="trr-header" role="banner">
+        <div class="trr-header-inner">
+          <a class="trr-brand" href="./index.html" aria-label="The Address - Resident Registry home">
+            <img src="./assets/images/TaLogo.png" alt="" width="203" height="204" />
+            <span>
+              <span class="trr-brand-name">The Address</span>
+              <span class="trr-brand-tag">Resident Registry</span>
+            </span>
+          </a>
+          <div class="trr-header-actions">
+            ${signedIn ? `
+              <span class="trr-who" title="${email}">${email} <span class="trr-chip trr-chip-info">${role}</span></span>
+              <button type="button" class="trr-btn trr-btn-ghost" data-trr-signout aria-label="Sign out">
+                <i class="fas fa-right-from-bracket"></i>
+                <span class="trr-sr-only">Sign out</span>
+              </button>
+            ` : `
+              <a class="trr-btn trr-btn-primary" href="./signin.html">
+                <i class="fas fa-right-to-bracket"></i> Sign in
+              </a>
+            `}
+          </div>
         </div>
       </header>
     `;
