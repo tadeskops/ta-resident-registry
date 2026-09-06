@@ -375,7 +375,17 @@
       localStorage.removeItem(EMAIL_KEY);
     },
     otpRequest: dispatch(mockOtpRequest, (email) => ['/auth/otp/request', { method: 'POST', body: { email } }]),
-    otpVerify: dispatch(mockOtpVerify, (email, code) => ['/auth/otp/verify', { method: 'POST', body: { email, code } }]),
+    otpVerify: async (email, code) => {
+      const mode = await ensureMode();
+      if (mode === 'mock') return mockOtpVerify(email, code);
+      const result = await liveFetch('/auth/otp/verify', { method: 'POST', body: { email, code } });
+      // Persist token so subsequent API calls carry it and requireAuth() sees a session.
+      if (result && result.token) {
+        localStorage.setItem(TOKEN_KEY, result.token);
+        localStorage.setItem(EMAIL_KEY, normEmail(email));
+      }
+      return result;
+    },
     whoami: dispatch(
       async () => {
         const email = localStorage.getItem(EMAIL_KEY);
