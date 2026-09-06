@@ -10,7 +10,7 @@
     "noUnusedParameters": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["@cloudflare/workers-types", "node"],
+    "types": ["@cloudflare/workers-types"],
     "noEmit": true
   },
   "include": ["src/**/*.ts", "tests/**/*.ts"]
